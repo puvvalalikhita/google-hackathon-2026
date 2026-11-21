@@ -14,6 +14,7 @@ let workletNode = null;
 let playbackCtx = null;
 let nextPlayTime = 0;
 let activeAudioSources = [];
+let aiSpeakingUntil = 0;
 let currentEnergy = 0.02;
 
 // Ambient Market Noise synthesizer
@@ -224,6 +225,15 @@ async function startMicStreaming() {
     currentEnergy = Math.max(0.02, Math.min(1, rms * 8));
     if (!ws || ws.readyState !== WebSocket.OPEN || !liveReady) return;
 
+    // Echo-Guard for laptop speakers: while AI audio is playing (+350ms room echo tail),
+    // ignore low-level speaker bleed so Gemini NEVER interrupts itself, while still allowing
+    // intentional close-mic human barge-in (rms >= 0.085)!
+    const aiCurrentlySpeaking =
+      activeAudioSources.length > 0 || (playbackCtx && playbackCtx.currentTime < aiSpeakingUntil);
+    if (aiCurrentlySpeaking && rms < 0.085) {
+      return;
+    }
+
     const bytes = new Uint8Array(pcm);
     let binary = "";
     for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
@@ -232,7 +242,7 @@ async function startMicStreaming() {
     ws.send(JSON.stringify({
       type: "audio_chunk",
       data: b64,
-      speaking: rms > 0.025,
+      speaking: rms > 0.02,
     }));
   };
 
@@ -291,6 +301,7 @@ function playPcm24kBase64(b64) {
   if (nextPlayTime < now) nextPlayTime = now + 0.02;
   source.start(nextPlayTime);
   nextPlayTime += audioBuffer.duration;
+  aiSpeakingUntil = nextPlayTime + 0.4;
 
   activeAudioSources.push(source);
   source.onended = () => {
@@ -304,6 +315,7 @@ function flushPlaybackAudio() {
     try { s.stop(); } catch {}
   }
   activeAudioSources = [];
+  aiSpeakingUntil = 0;
   if (playbackCtx) nextPlayTime = playbackCtx.currentTime;
 }
 
