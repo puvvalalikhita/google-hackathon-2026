@@ -130,9 +130,12 @@
             <canvas id="waveCanvas" width="320" height="54" class="w-full h-14 mt-3 rounded-lg bg-slate-950/60 border border-slate-800/80"></canvas>
 
             <!-- Primary Call Controls -->
-            <div class="flex items-center gap-2 mt-3 w-full">
+            <div class="flex items-center gap-1.5 mt-3 w-full">
               <button id="callToggleBtn" onclick="toggleLiveCall()" class="flex-1 py-2.5 px-3 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition shadow-lg shadow-emerald-500/20">
                 📞 Start Live Call
+              </button>
+              <button id="endTurnBtn" onclick="forceEndTurn()" class="hidden py-2.5 px-2.5 rounded-xl font-bold text-xs bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-500/40 transition" title="Tap if noisy room prevents auto end-of-speech">
+                ✓ Reply Now
               </button>
               <button id="noiseToggleBtn" onclick="toggleMarketNoise()" class="py-2.5 px-2.5 rounded-xl font-semibold text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" title="Simulate noisy wholesale market traffic & chatter">
                 🔊 Noise: OFF

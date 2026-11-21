@@ -187,10 +187,10 @@ class LiveBridgeSession:
             "realtime_input_config": {
                 "automatic_activity_detection": {
                     "disabled": False,
-                    "start_of_speech_sensitivity": "START_SENSITIVITY_HIGH",
+                    "start_of_speech_sensitivity": "START_SENSITIVITY_LOW",
                     "end_of_speech_sensitivity": "END_SENSITIVITY_HIGH",
-                    "prefix_padding_ms": 150,
-                    "silence_duration_ms": 550,
+                    "prefix_padding_ms": 200,
+                    "silence_duration_ms": 700,
                 }
             },
         }
@@ -320,6 +320,11 @@ class LiveBridgeSession:
                     self.awaiting_first_audio = True
                     await self.send_ui({"type": "transcript", "role": "user", "text": text, "final": True})
                     await self.gemini_session.send_realtime_input(text=text)
+
+            elif msg_type == "force_end_turn" and self.gemini_session is not None:
+                self.last_user_audio_ts = time.perf_counter()
+                self.awaiting_first_audio = True
+                await self.gemini_session.send_realtime_input(audio_stream_end=True)
 
             elif msg_type == "ping":
                 await self.send_ui({"type": "pong"})

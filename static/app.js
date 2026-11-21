@@ -130,8 +130,9 @@ async function startLiveCall() {
   nextPlayTime = playbackCtx.currentTime;
 
   const btn = document.getElementById("callToggleBtn");
-  btn.textContent = "🔴 End Live Call";
-  btn.className = "flex-1 py-2.5 px-4 rounded-xl font-bold text-sm bg-rose-500 hover:bg-rose-400 text-white transition shadow-lg shadow-rose-500/25";
+  btn.textContent = "🔴 End Call";
+  btn.className = "flex-1 py-2.5 px-3 rounded-xl font-bold text-sm bg-rose-500 hover:bg-rose-400 text-white transition shadow-lg shadow-rose-500/25";
+  document.getElementById("endTurnBtn")?.classList.remove("hidden");
   document.getElementById("avatarRing").classList.add("pulse-ring");
   document.getElementById("callStatusTitle").textContent = healthInfo.gemini_configured
     ? "Connecting to Gemini Live API..."
@@ -178,10 +179,18 @@ function stopLiveCall() {
 
   const btn = document.getElementById("callToggleBtn");
   btn.textContent = "📞 Start Live Call";
-  btn.className = "flex-1 py-2.5 px-4 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition shadow-lg shadow-emerald-500/20";
+  btn.className = "flex-1 py-2.5 px-3 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition shadow-lg shadow-emerald-500/20";
+  document.getElementById("endTurnBtn")?.classList.add("hidden");
   document.getElementById("avatarRing").classList.remove("pulse-ring");
   document.getElementById("callStatusTitle").textContent = "Tap to Start Real-Time Voice Call";
   setSpeakingIndicator("Idle", "slate");
+}
+
+function forceEndTurn() {
+  if (ws && ws.readyState === WebSocket.OPEN && liveReady) {
+    ws.send(JSON.stringify({ type: "force_end_turn" }));
+    setSpeakingIndicator("Processing Turn...", "cyan");
+  }
 }
 
 function updateCallTimer() {
@@ -766,28 +775,12 @@ function toggleMarketNoise() {
   filter.Q.value = 0.7;
 
   const gain = noiseCtx.createGain();
-  gain.gain.value = 0.075;
+  gain.gain.value = 0.045;
 
   src.connect(filter);
   filter.connect(gain);
   gain.connect(noiseCtx.destination);
   src.start();
-
-  // Occasional subtle Indian scooter/truck horn beep in background
-  noiseInterval = setInterval(() => {
-    if (!noiseCtx || !noiseActive) return;
-    const osc = noiseCtx.createOscillator();
-    const g = noiseCtx.createGain();
-    osc.type = "sawtooth";
-    osc.frequency.value = Math.random() > 0.5 ? 440 : 520;
-    g.gain.setValueAtTime(0.001, noiseCtx.currentTime);
-    g.gain.linearRampToValueAtTime(0.035, noiseCtx.currentTime + 0.04);
-    g.gain.exponentialRampToValueAtTime(0.0001, noiseCtx.currentTime + 0.28);
-    osc.connect(g);
-    g.connect(noiseCtx.destination);
-    osc.start();
-    osc.stop(noiseCtx.currentTime + 0.3);
-  }, 4500);
 }
 
 // --- UI RENDERERS ---
