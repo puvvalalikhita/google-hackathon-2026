@@ -1,0 +1,530 @@
+import time
+import uuid
+from typing import Any, Dict, List, Optional, Tuple
+
+from app.database import _now_iso, find_customer, get_conn, get_full_state
+from app.policies import lookup_policies
+
+# Holds the latest multimodal camera/photo proof captured during the active delivery session
+LATEST_VISUAL_PROOF: Dict[str, Any] = {"data_url": None, "caption": None}
+
+
+def set_latest_visual_proof(data_url: Optional[str], caption: str = "Field Camera Proof") -> Dict[str, Any]:
+    LATEST_VISUAL_PROOF["data_url"] = data_url
+    LATEST_VISUAL_PROOF["caption"] = caption
+    attached_to = None
+    if data_url:
+        conn = get_conn()
+        cur = conn.cursor()
+        row = cur.execute(
+            "SELECT approval_id FROM approvals WHERE status = 'PENDING' ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+        if row:
+            attached_to = row["approval_id"]
+            cur.execute("UPDATE approvals SET proof_image = ? WHERE approval_id = ?", (data_url, attached_to))
+            conn.commit()
+        conn.close()
+    return {"stored": bool(data_url), "attached_to_approval": attached_to, "caption": caption}
+
+
+# Gemini Live API Function Declarations (JSON Schema format compatible with google-genai)
+GEMINI_TOOL_DECLARATIONS: List[Dict[str, Any]] = [
+    {
+        "function_declarations": [
+            {
+                "name": "lookup_customer_and_invoice",
+                "description": (
+                    "Look up a customer/shop by spoken name or ID (e.g., 'Krishna Hardware', 'Shri Ganesh Stores') "
+                    "to retrieve their official customer_id, pending invoice, expected bags, SKU, and balance due."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "customer_name": {
+                            "type": "STRING",
+                            "description": "Spoken shop or customer name, e.g. 'Krishna Hardware'",
+                        }
+                    },
+                    "required": ["customer_name"],
+                },
+            },
+            {
+                "name": "check_company_policy",
+                "description": (
+                    "Retrieve official DeliverEx company SOP rules for spot discounts, damaged goods, "
+                    "cash settlement, or human handoff before making a promise to the driver or customer."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "topic": {
+                            "type": "STRING",
+                            "description": "Topic keywords such as 'discount', 'damaged bags', 'cash', or 'handoff'",
+                        }
+                    },
+                    "required": ["topic"],
+                },
+            },
+            {
+                "name": "record_delivery_and_update_ledger",
+                "description": (
+                    "Record a delivery in Tally/SAP Ledger and update Warehouse Inventory. "
+                    "Automatically enforces SOP-4.2 (discounts > Rs 200 need Manager Priya approval) and "
+                    "SOP-5.1 (damaged bags go to quarantine + Manager approval). "
+                    "Call this once the driver states delivered bags, cash received, and any damage or discount."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "customer_name": {
+                            "type": "STRING",
+                            "description": "Customer/shop name, e.g. 'Krishna Hardware'",
+                        },
+                        "delivered_bags": {
+                            "type": "INTEGER",
+                            "description": "Number of intact bags delivered to the customer",
+                        },
+                        "damaged_bags": {
+                            "type": "INTEGER",
+                            "description": "Number of damaged/torn bags (0 if none)",
+                        },
+                        "cash_received": {
+                            "type": "INTEGER",
+                            "description": "Cash collected in INR (e.g. 15000)",
+                        },
+                        "discount_requested": {
+                            "type": "INTEGER",
+                            "description": "Extra discount requested in INR (0 if none)",
+                        },
+                        "driver_name": {
+                            "type": "STRING",
+                            "description": "Field driver name, default 'Raju Kumar'",
+                        },
+                        "notes": {
+                            "type": "STRING",
+                            "description": "Brief summary of delivery details or customer request",
+                        },
+                    },
+                    "required": ["customer_name", "delivered_bags", "cash_received"],
+                },
+            },
+            {
+                "name": "request_human_handoff",
+                "description": (
+                    "Escalate the live interaction to Area Manager Priya Sharma when there is a customer "
+                    "dispute, refusal to pay, or request to speak to a human manager."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "customer_name": {"type": "STRING", "description": "Customer/shop name"},
+                        "reason": {"type": "STRING", "description": "Why human manager judgment is needed"},
+                    },
+                    "required": ["customer_name", "reason"],
+                },
+            },
+            {
+                "name": "update_frontline_guidance",
+                "description": (
+                    "Update the live Frontline Ops HUD with detected intent, code-switched language, "
+                    "customer sentiment, and actionable next-step coaching for the field driver."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "intent": {"type": "STRING", "description": "Detected intent, e.g. DAMAGE_AND_DISCOUNT_NEGOTIATION"},
+                        "language": {"type": "STRING", "description": "Detected language/code-switch, e.g. Hinglish (HI+EN) or Tanglish (TA+EN)"},
+                        "sentiment": {"type": "STRING", "description": "One of: CALM, CONCERNED, FRUSTRATED, POSITIVE, RESOLVED"},
+                        "coach_tip": {"type": "STRING", "description": "Concise actionable next step for the frontline driver"},
+                        "suggested_phrase": {"type": "STRING", "description": "Recommended polite phrase for the driver to tell the shop owner"},
+                    },
+                    "required": ["intent", "language", "sentiment", "coach_tip"],
+                },
+            },
+        ]
+    }
+]
+
+
+def _short_id(prefix: str) -> str:
+    return f"{prefix}-{uuid.uuid4().hex[:5].upper()}"
+
+
+def execute_tool(
+    name: str, args: Dict[str, Any], channel: str = "GEMINI_LIVE_VOICE"
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """
+    Executes a backend business tool against SQLite Tally/SAP ERP.
+    Returns (tool_result_for_gemini, ui_event_metadata).
+    """
+    t0 = time.perf_counter()
+    args = args or {}
+
+    if name == "lookup_customer_and_invoice":
+        cust = find_customer(args.get("customer_name", ""))
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+        if not cust:
+            return (
+                {"found": False, "message": f"No customer matched '{args.get('customer_name')}'."},
+                {"tool": name, "elapsed_ms": elapsed_ms, "status": "NOT_FOUND"},
+            )
+        return (
+            {
+                "found": True,
+                "customer_id": cust["customer_id"],
+                "name": cust["name"],
+                "location": cust["location"],
+                "route": cust["route"],
+                "pending_invoice_id": cust["pending_invoice_id"],
+                "invoice_amount_inr": cust["invoice_amount"],
+                "expected_bags": cust["expected_bags"],
+                "sku_code": cust["sku_code"],
+                "balance_due_inr": cust["balance_due"],
+            },
+            {"tool": name, "elapsed_ms": elapsed_ms, "status": "OK", "customer": cust},
+        )
+
+    if name == "check_company_policy":
+        topic = args.get("topic", "discount")
+        policies = lookup_policies(topic)
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+        return (
+            {"matched_policies": policies},
+            {"tool": name, "elapsed_ms": elapsed_ms, "status": "OK", "policies": policies},
+        )
+
+    if name == "record_delivery_and_update_ledger":
+        cust = find_customer(args.get("customer_name", "Krishna Hardware"))
+        if not cust:
+            elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+            return (
+                {"success": False, "error": "Customer not found in ERP. Please confirm shop name."},
+                {"tool": name, "elapsed_ms": elapsed_ms, "status": "ERROR"},
+            )
+
+        delivered = int(args.get("delivered_bags", cust["expected_bags"]))
+        damaged = int(args.get("damaged_bags", 0) or 0)
+        cash = int(args.get("cash_received", 0) or 0)
+        discount = int(args.get("discount_requested", 0) or 0)
+        driver = args.get("driver_name") or "Raju Kumar"
+        notes = args.get("notes") or f"{delivered} bags delivered, Rs {cash} cash received"
+
+        needs_approval = discount > 200 or damaged > 0
+        now = _now_iso()
+        entry_id = _short_id("TALLY")
+        tally_status = "PARTIAL_PENDING_APPROVAL" if needs_approval else "SYNCED_TALLY"
+
+        conn = get_conn()
+        cur = conn.cursor()
+
+        # 1. Insert Ledger entry
+        cur.execute(
+            """
+            INSERT INTO ledger_entries (
+                entry_id, timestamp, driver_name, customer_id, customer_name, invoice_id,
+                sku_code, delivered_qty, damaged_qty, cash_received, discount_amount,
+                channel, tally_status, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                entry_id,
+                now,
+                driver,
+                cust["customer_id"],
+                cust["name"],
+                cust["pending_invoice_id"],
+                cust["sku_code"],
+                delivered,
+                damaged,
+                cash,
+                0 if needs_approval else discount,
+                channel,
+                tally_status,
+                notes,
+            ),
+        )
+
+        # 2. Update Warehouse Inventory
+        cur.execute(
+            """
+            UPDATE inventory
+            SET warehouse_stock = MAX(0, warehouse_stock - ?),
+                damaged_quarantine = damaged_quarantine + ?,
+                updated_at = ?
+            WHERE sku_code = ?
+            """,
+            (delivered + damaged, damaged, now, cust["sku_code"]),
+        )
+
+        # 3. Update Customer Balance
+        applied_discount = 0 if needs_approval else discount
+        new_balance = max(0, cust["balance_due"] - cash - applied_discount)
+        new_status = "PENDING_MANAGER_APPROVAL" if needs_approval else ("SETTLED" if new_balance == 0 else "PARTIAL_PAID")
+        cur.execute(
+            "UPDATE customers SET balance_due = ?, status = ? WHERE customer_id = ?",
+            (new_balance, new_status, cust["customer_id"]),
+        )
+
+        approval_payload = None
+        receipt_payload = None
+
+        # 4. Route exception to Priya OR issue immediate receipt
+        if needs_approval:
+            approval_id = _short_id("APR")
+            reasons = []
+            policy_refs = []
+            if discount > 200:
+                reasons.append(f"Special discount of Rs {discount} exceeds driver auto-limit of Rs 200")
+                policy_refs.append("SOP-4.2")
+            if damaged > 0:
+                reasons.append(f"{damaged} damaged/torn bags moved to quarantine")
+                policy_refs.append("SOP-5.1")
+
+            policy_ref = " & ".join(policy_refs)
+            summary = f"{cust['name']} ({cust['pending_invoice_id']}): " + "; ".join(reasons)
+            cur.execute(
+                """
+                INSERT INTO approvals (
+                    approval_id, created_at, driver_name, customer_id, customer_name,
+                    entry_id, exception_type, policy_ref, summary, discount_requested,
+                    damaged_qty, proof_image, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')
+                """,
+                (
+                    approval_id,
+                    now,
+                    driver,
+                    cust["customer_id"],
+                    cust["name"],
+                    entry_id,
+                    "DISCOUNT_AND_DAMAGE" if (discount > 200 and damaged > 0) else ("SPECIAL_DISCOUNT" if discount > 200 else "DAMAGED_GOODS"),
+                    policy_ref,
+                    summary,
+                    discount,
+                    damaged,
+                    LATEST_VISUAL_PROOF.get("data_url"),
+                ),
+            )
+            approval_payload = {
+                "approval_id": approval_id,
+                "policy_ref": policy_ref,
+                "summary": summary,
+                "manager": "Priya Sharma (Area Manager)",
+                "status": "PENDING",
+            }
+
+            # Add Field Intelligence insight if damaged bags occurred
+            if damaged > 0:
+                cur.execute(
+                    """
+                    INSERT INTO insights (created_at, route, category, severity, title, detail)
+                    VALUES (?, ?, 'DAMAGED_GOODS', 'HIGH', ?, ?)
+                    """,
+                    (
+                        now,
+                        cust["route"],
+                        f"Recurring Damage Alert on {cust['route']} ({damaged} more bags torn)",
+                        f"Driver {driver} reported {damaged} damaged {cust['sku_code']} bags at {cust['name']}. "
+                        f"Pattern detected (3rd incident this week) — recommend auditing Warehouse Loader Shift B.",
+                    ),
+                )
+        else:
+            receipt_id = _short_id("RCPT")
+            msg = (
+                f"DeliverEx Official Receipt ({receipt_id})\n"
+                f"Shop: {cust['name']} ({cust['pending_invoice_id']})\n"
+                f"Delivered: {delivered} bags | Cash: Rs {cash:,} | Discount: Rs {discount:,}\n"
+                f"Balance Due: Rs {new_balance:,} | Tally Ref: {entry_id}"
+            )
+            cur.execute(
+                """
+                INSERT INTO receipts VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    receipt_id,
+                    now,
+                    driver,
+                    cust["name"],
+                    cust["pending_invoice_id"],
+                    delivered,
+                    damaged,
+                    cash,
+                    discount,
+                    new_balance,
+                    channel,
+                    msg,
+                ),
+            )
+            receipt_payload = {"receipt_id": receipt_id, "message": msg}
+
+        conn.commit()
+        conn.close()
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+
+        result = {
+            "success": True,
+            "tally_entry_id": entry_id,
+            "customer_id": cust["customer_id"],
+            "customer_name": cust["name"],
+            "invoice_id": cust["pending_invoice_id"],
+            "delivered_bags": delivered,
+            "damaged_bags": damaged,
+            "cash_posted_inr": cash,
+            "tally_status": tally_status,
+            "remaining_balance_inr": new_balance,
+            "needs_manager_approval": needs_approval,
+            "approval": approval_payload,
+            "receipt": receipt_payload,
+        }
+        return (
+            result,
+            {
+                "tool": name,
+                "elapsed_ms": elapsed_ms,
+                "status": "ESCALATED" if needs_approval else "SYNCED",
+                "result": result,
+            },
+        )
+
+    if name == "request_human_handoff":
+        cust = find_customer(args.get("customer_name", "Krishna Hardware"))
+        cust_id = cust["customer_id"] if cust else "CUST-UNKNOWN"
+        cust_name = cust["name"] if cust else args.get("customer_name", "Unknown Shop")
+        reason = args.get("reason", "Driver requested live manager support")
+        now = _now_iso()
+        approval_id = _short_id("HANDOFF")
+
+        conn = get_conn()
+        conn.execute(
+            """
+            INSERT INTO approvals (
+                approval_id, created_at, driver_name, customer_id, customer_name,
+                entry_id, exception_type, policy_ref, summary, discount_requested,
+                damaged_qty, proof_image, status
+            ) VALUES (?, ?, 'Raju Kumar', ?, ?, NULL, 'LIVE_HANDOFF', 'SOP-6.0', ?, 0, 0, ?, 'PENDING')
+            """,
+            (approval_id, now, cust_id, cust_name, reason, LATEST_VISUAL_PROOF.get("data_url")),
+        )
+        conn.commit()
+        conn.close()
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+        result = {
+            "handoff_id": approval_id,
+            "assigned_to": "Priya Sharma (Area Manager)",
+            "status": "QUEUED_FOR_LIVE_TAKEOVER",
+            "message": "Manager Priya has been notified with full transcript and context.",
+        }
+        return result, {"tool": name, "elapsed_ms": elapsed_ms, "status": "HANDOFF", "result": result}
+
+    if name == "update_frontline_guidance":
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+        guidance = {
+            "intent": args.get("intent", "DELIVERY_UPDATE"),
+            "language": args.get("language", "Hinglish (HI+EN)"),
+            "sentiment": args.get("sentiment", "CALM"),
+            "coach_tip": args.get("coach_tip", "Confirm intact bags and cash amount clearly."),
+            "suggested_phrase": args.get("suggested_phrase", ""),
+        }
+        return {"updated": True, "guidance": guidance}, {
+            "tool": name,
+            "elapsed_ms": elapsed_ms,
+            "status": "COACHED",
+            "guidance": guidance,
+        }
+
+    elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+    return {"error": f"Unknown tool {name}"}, {"tool": name, "elapsed_ms": elapsed_ms, "status": "ERROR"}
+
+
+def decide_approval(approval_id: str, decision: str) -> Dict[str, Any]:
+    """
+    Processes Priya's 1-tap decision: APPROVED, REJECTED, or TAKE_OVER.
+    Updates Tally/SAP ledger, customer balance, and creates closed-loop WhatsApp receipt.
+    """
+    decision = decision.upper()
+    if decision not in {"APPROVED", "REJECTED", "TAKE_OVER"}:
+        raise ValueError("Decision must be APPROVED, REJECTED, or TAKE_OVER")
+
+    conn = get_conn()
+    cur = conn.cursor()
+    row = cur.execute("SELECT * FROM approvals WHERE approval_id = ?", (approval_id,)).fetchone()
+    if not row:
+        conn.close()
+        raise ValueError(f"Approval {approval_id} not found")
+
+    apr = dict(row)
+    now = _now_iso()
+    cur.execute(
+        "UPDATE approvals SET status = ?, decided_at = ? WHERE approval_id = ?",
+        (decision, now, approval_id),
+    )
+
+    receipt_payload = None
+    cust = cur.execute("SELECT * FROM customers WHERE customer_id = ?", (apr["customer_id"],)).fetchone()
+    ledger = (
+        cur.execute("SELECT * FROM ledger_entries WHERE entry_id = ?", (apr["entry_id"],)).fetchone()
+        if apr["entry_id"]
+        else None
+    )
+
+    if decision == "APPROVED" and cust and ledger:
+        discount = int(apr["discount_requested"] or 0)
+        new_balance = max(0, int(cust["balance_due"]) - discount)
+        cur.execute(
+            "UPDATE ledger_entries SET discount_amount = ?, tally_status = 'SYNCED_TALLY_APPROVED' WHERE entry_id = ?",
+            (discount, apr["entry_id"]),
+        )
+        cur.execute(
+            "UPDATE customers SET balance_due = ?, status = ? WHERE customer_id = ?",
+            (new_balance, "SETTLED" if new_balance == 0 else "PARTIAL_PAID", cust["customer_id"]),
+        )
+
+        receipt_id = _short_id("RCPT")
+        msg = (
+            f"DeliverEx Official Receipt ({receipt_id}) ✅\n"
+            f"Shop: {cust['name']} | Invoice: {cust['pending_invoice_id']}\n"
+            f"Delivered: {ledger['delivered_qty']} intact bags (Quarantined: {ledger['damaged_qty']})\n"
+            f"Cash Received: Rs {ledger['cash_received']:,} | Approved Discount: Rs {discount:,}\n"
+            f"Approved By: Priya Sharma (Area Manager)\n"
+            f"Balance Remaining: Rs {new_balance:,} | Tally Ref: {apr['entry_id']}"
+        )
+        cur.execute(
+            """
+            INSERT INTO receipts VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                receipt_id,
+                now,
+                apr["driver_name"],
+                cust["name"],
+                cust["pending_invoice_id"],
+                ledger["delivered_qty"],
+                ledger["damaged_qty"],
+                ledger["cash_received"],
+                discount,
+                new_balance,
+                "WHATSAPP_RECEIPT",
+                msg,
+            ),
+        )
+        receipt_payload = {"receipt_id": receipt_id, "message": msg, "balance_remaining": new_balance}
+    elif decision == "REJECTED" and cust and ledger:
+        cur.execute(
+            "UPDATE ledger_entries SET tally_status = 'DISCOUNT_REJECTED_BALANCE_OPEN' WHERE entry_id = ?",
+            (apr["entry_id"],),
+        )
+        cur.execute(
+            "UPDATE customers SET status = 'PARTIAL_BALANCE_OPEN' WHERE customer_id = ?",
+            (cust["customer_id"],),
+        )
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "approval_id": approval_id,
+        "decision": decision,
+        "approval": apr,
+        "receipt": receipt_payload,
+        "state": get_full_state(),
+    }

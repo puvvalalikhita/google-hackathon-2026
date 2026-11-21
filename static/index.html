@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeliverEx Live — Gemini Live Voice Agent + WhatsApp Field Ops</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%2310b981'/><text x='50%25' y='56%25' text-anchor='middle' dominant-baseline='middle' font-family='Arial' font-weight='900' font-size='28' fill='%23020617'>DX</text></svg>" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+    body { font-family: 'Inter', system-ui, sans-serif; background: #070b14; color: #e2e8f0; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .glass { background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(12px); border: 1px solid rgba(148, 163, 184, 0.14); }
+    .wa-bg { background-color: #0b141a; background-image: radial-gradient(rgba(37, 211, 102, 0.06) 1px, transparent 1px); background-size: 18px 18px; }
+    .flash-row { animation: rowFlash 1.5s ease-out; }
+    @keyframes rowFlash {
+      0% { background-color: rgba(16, 185, 129, 0.35); }
+      100% { background-color: transparent; }
+    }
+    .pulse-ring { animation: pulseRing 1.8s infinite; }
+    @keyframes pulseRing {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
+      70% { box-shadow: 0 0 0 14px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 999px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- TOP COMMAND BAR -->
+  <header class="border-b border-slate-800/80 bg-slate-950/90 sticky top-0 z-30">
+    <div class="max-w-[1680px] mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-slate-950 font-extrabold text-lg shadow-lg shadow-emerald-500/20">
+          DX
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-extrabold tracking-tight text-white text-base leading-none">DeliverEx Live</h1>
+            <span id="modeBadge" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+              Checking Gemini API...
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-0.5">Real-Time Gemini Live Voice Agent &bull; Hinglish Field Ops &bull; Tally/SAP + 1-Tap WhatsApp Approval</p>
+        </div>
+      </div>
+
+      <!-- LIVE TELEMETRY METRICS -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <div class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-2">
+          <span class="text-[10px] uppercase tracking-wider text-slate-400">TTFA</span>
+          <span id="latencyBadge" class="mono text-xs font-bold text-emerald-400">-- ms</span>
+          <canvas id="latencySparkline" width="56" height="18" class="rounded bg-slate-950/70"></canvas>
+        </div>
+        <div class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-1.5">
+          <span class="text-[10px] uppercase tracking-wider text-slate-400">Noise</span>
+          <span id="noiseDbBadge" class="mono text-xs font-bold text-cyan-300">42 dB</span>
+        </div>
+        <div class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-1.5">
+          <span class="text-[10px] uppercase tracking-wider text-slate-400">Barge-Ins</span>
+          <span id="bargeInBadge" class="mono text-xs font-bold text-amber-400">0</span>
+        </div>
+        <div class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-1.5">
+          <span class="text-[10px] uppercase tracking-wider text-slate-400">Lang</span>
+          <span id="langBadge" class="text-xs font-semibold text-cyan-300">Hinglish / Tanglish</span>
+        </div>
+
+        <div class="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 ml-1">
+          <button id="viewOpsBtn" onclick="switchMainView('ops')" class="px-3 py-1 rounded-md text-xs font-semibold bg-emerald-500 text-slate-950 transition">
+            Live Ops Console
+          </button>
+          <button id="viewInsightsBtn" onclick="switchMainView('insights')" class="px-3 py-1 rounded-md text-xs font-semibold text-slate-300 hover:text-white transition">
+            Insights &amp; ROI (Bonus)
+          </button>
+        </div>
+
+        <button onclick="resetDemo()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          ↺ Reset Demo
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN VIEW 1: 3-PANEL LIVE COMMAND CENTER -->
+  <main id="opsView" class="flex-1 max-w-[1680px] w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+    <!-- LEFT PANEL (4 cols): RAJU'S MOBILE FIELD AGENT INTERFACE -->
+    <section class="lg:col-span-4 flex flex-col gap-3">
+      <div class="glass rounded-2xl overflow-hidden flex flex-col h-full">
+        <!-- Phone Header + Channel Switcher -->
+        <div class="px-4 py-3 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
+          <div>
+            <div class="text-xs font-bold text-white flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              Raju Kumar &bull; Field Driver
+            </div>
+            <div class="text-[11px] text-slate-400">Old Delhi Wholesale Market (Route-4)</div>
+          </div>
+          <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[11px]">
+            <button id="tabLiveCall" onclick="switchDriverTab('live')" class="px-2.5 py-1 rounded-md font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              Live Voice
+            </button>
+            <button id="tabWhatsApp" onclick="switchDriverTab('whatsapp')" class="px-2.5 py-1 rounded-md font-semibold text-slate-400 hover:text-white">
+              WhatsApp Note
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB A: GEMINI LIVE VOICE CALL -->
+        <div id="driverLivePanel" class="p-4 flex-1 flex flex-col justify-between gap-3">
+          <!-- Call Card -->
+          <div class="wa-bg rounded-2xl border border-emerald-500/20 p-4 flex flex-col items-center text-center relative overflow-hidden">
+            <div class="flex items-center justify-between w-full mb-2">
+              <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                DeliverEx AI &bull; Verified Business
+              </span>
+              <span id="callTimer" class="mono text-xs text-slate-400">00:00</span>
+            </div>
+
+            <div id="avatarRing" class="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-2xl font-bold text-slate-950 my-2 shadow-lg">
+              🎙️
+            </div>
+            <h2 id="callStatusTitle" class="text-sm font-bold text-white">Tap to Start Real-Time Voice Call</h2>
+            <p id="callStatusSub" class="text-[11px] text-slate-400 mt-0.5">Native Gemini Voice-to-Voice &bull; Speak Hinglish &bull; Interrupt Anytime</p>
+
+            <!-- Live Waveform Canvas -->
+            <canvas id="waveCanvas" width="320" height="54" class="w-full h-14 mt-3 rounded-lg bg-slate-950/60 border border-slate-800/80"></canvas>
+
+            <!-- Primary Call Controls -->
+            <div class="flex items-center gap-2 mt-3 w-full">
+              <button id="callToggleBtn" onclick="toggleLiveCall()" class="flex-1 py-2.5 px-3 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition shadow-lg shadow-emerald-500/20">
+                📞 Start Live Call
+              </button>
+              <button id="noiseToggleBtn" onclick="toggleMarketNoise()" class="py-2.5 px-2.5 rounded-xl font-semibold text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" title="Simulate noisy wholesale market traffic & chatter">
+                🔊 Noise: OFF
+              </button>
+            </div>
+
+            <!-- TRUE MULTIMODAL VISION PROOF-OF-DELIVERY (See + Hear + Speak) -->
+            <div class="w-full mt-2.5 pt-2.5 border-t border-slate-800/80">
+              <div class="flex items-center justify-between text-[10px] text-cyan-300 font-bold uppercase tracking-wider mb-1.5">
+                <span>👁️ Multimodal Vision Proof (Gemini Live Video)</span>
+                <span id="visionStatusBadge" class="text-slate-400 font-normal">Ready</span>
+              </div>
+              <div class="flex gap-1.5">
+                <button id="cameraToggleBtn" onclick="toggleLiveCamera()" class="flex-1 py-1.5 px-2 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/35 font-semibold text-[11px] transition">
+                  📷 Live Camera
+                </button>
+                <button onclick="sendSampleDamagePhoto()" class="flex-1 py-1.5 px-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/35 font-semibold text-[11px] transition">
+                  📸 Show 2 Torn Bags
+                </button>
+              </div>
+              <video id="cameraPreview" autoplay playsinline muted class="hidden w-full h-24 object-cover rounded-lg mt-2 border border-cyan-500/40"></video>
+              <img id="proofThumbPreview" alt="Visual proof" class="hidden w-full h-24 object-cover rounded-lg mt-2 border border-amber-500/40" />
+            </div>
+          </div>
+
+          <!-- Instant Demo & Barge-In Quick Triggers (Great for Hackathon Stage Reliability!) -->
+          <div class="bg-slate-900/70 rounded-xl border border-slate-800 p-3">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Live Script / Stage Controls</span>
+              <span class="text-[10px] text-slate-400">Hinglish &bull; Tanglish &bull; Barge-In</span>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <button onclick="runGuidedStep(1)" class="text-left px-2.5 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 text-xs transition">
+                <span class="font-bold text-emerald-400">1. Hinglish Update (Old Delhi):</span>
+                <span class="text-slate-300 block text-[11px]">"Krishna Hardware pe 20 bags deliver, ₹15,000 cash mil gaya."</span>
+              </button>
+              <button onclick="runGuidedStep(2)" class="text-left px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs transition">
+                <span class="font-bold text-amber-300">2. ⚡ Mid-Sentence Interrupt (Barge-In):</span>
+                <span class="text-slate-200 block text-[11px]">"Ruko ruko! 18 bags intact, 2 damaged, uncle ₹500 discount maang rahe!"</span>
+              </button>
+              <div class="grid grid-cols-2 gap-1.5">
+                <button onclick="runGuidedStep(4)" class="text-left px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-[11px] transition">
+                  <span class="font-bold text-cyan-300">3. Tanglish (Chennai):</span>
+                  <span class="text-slate-300 block text-[10px] truncate">"Murugan Builders 25 bags..."</span>
+                </button>
+                <button onclick="runGuidedStep(3)" class="text-left px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-[11px] transition">
+                  <span class="font-bold text-rose-300">4. Live Escalation:</span>
+                  <span class="text-slate-300 block text-[10px] truncate">"Priya ma'am se baat..."</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Custom Hinglish Text Turn Fallback -->
+            <form onsubmit="sendCustomTextTurn(event)" class="mt-2.5 flex gap-1.5">
+              <input id="customTextInput" type="text" placeholder="Type Hinglish / Tanglish turn..." class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
+              <button type="submit" class="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs">Send</button>
+            </form>
+          </div>
+
+          <!-- Latest Closed-Loop WhatsApp Receipt Card -->
+          <div id="receiptCardBox" class="hidden rounded-xl border border-emerald-500/40 bg-emerald-950/30 p-3">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[11px] font-bold text-emerald-300">✅ Official WhatsApp Receipt Sent to Raju</span>
+              <span id="receiptIdBadge" class="mono text-[10px] text-emerald-400"></span>
+            </div>
+            <pre id="receiptCardText" class="text-[11px] text-emerald-100 whitespace-pre-wrap font-sans leading-relaxed"></pre>
+          </div>
+        </div>
+
+        <!-- TAB B: WHATSAPP VOICE NOTE (YOGESH'S ASYNC FLOW) -->
+        <div id="driverWhatsAppPanel" class="hidden p-4 flex-1 flex flex-col gap-3">
+          <div class="wa-bg rounded-xl border border-slate-800 p-3 flex-1 flex flex-col justify-between min-h-[340px]">
+            <div id="waChatFeed" class="space-y-2.5 overflow-y-auto max-h-[320px] pr-1">
+              <div class="bg-slate-800/90 text-slate-200 text-xs p-2.5 rounded-xl rounded-tl-none max-w-[90%] border border-slate-700/70">
+                <div class="text-[10px] font-bold text-emerald-400 mb-0.5">DeliverEx Official Ops (+91-80-DELIVEREX)</div>
+                Namaste Raju! Delivery complete hone par apna 10-second voice note bhej do — Tally/SAP &amp; Priya Ma'am ko auto-update ho jayega.
+              </div>
+            </div>
+
+            <div class="mt-3 pt-2.5 border-t border-slate-800 space-y-2">
+              <div class="flex gap-2">
+                <button id="waRecordBtn" onclick="toggleWhatsAppRecord()" class="flex-1 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition">
+                  🎤 Record Voice Note
+                </button>
+                <button onclick="sendSampleWhatsAppNote()" class="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 font-semibold text-xs transition">
+                  ⚡ Send Sample Hinglish Note
+                </button>
+              </div>
+              <p class="text-[10px] text-slate-400 text-center">
+                Also wired to real Meta Cloud API webhook at <span class="mono text-cyan-300">POST /webhook/whatsapp</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CENTER PANEL (4 cols): LIVE AI OPS BRAIN, SENTIMENT/COACH HUD, TRANSCRIPT & TOOLS -->
+    <section class="lg:col-span-4 flex flex-col gap-3">
+      <!-- Real-Time Understanding HUD + Actionable Frontline Staff Coach -->
+      <div class="glass rounded-2xl p-3.5 border-cyan-500/25">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-extrabold uppercase tracking-wider text-cyan-300">Real-Time Understanding &amp; Frontline Coach</h3>
+          <span id="sentimentBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">SENTIMENT: CALM</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-[11px] mb-2">
+          <div class="bg-slate-900/80 border border-slate-800 rounded-lg px-2.5 py-1.5">
+            <span class="text-[9px] uppercase text-slate-400 block">Live Intent</span>
+            <span id="hudIntent" class="mono font-bold text-white">AWAITING_SPEECH</span>
+          </div>
+          <div class="bg-slate-900/80 border border-slate-800 rounded-lg px-2.5 py-1.5">
+            <span class="text-[9px] uppercase text-slate-400 block">Code-Switch Detected</span>
+            <span id="hudLanguage" class="font-bold text-cyan-300">Hinglish (HI+EN)</span>
+          </div>
+        </div>
+        <div class="bg-emerald-950/35 border border-emerald-500/30 rounded-xl p-2.5">
+          <div class="text-[10px] font-extrabold uppercase text-emerald-300">💡 Live Guidance for Frontline Staff (Raju)</div>
+          <div id="hudCoachTip" class="text-[11px] text-slate-200 mt-0.5">Ready — speak naturally in Hinglish or Tanglish. Show damaged bags via camera for instant verification.</div>
+          <div id="hudSuggestedPhrase" class="hidden text-[11px] text-emerald-200 italic mt-1 pt-1 border-t border-emerald-500/20"></div>
+        </div>
+      </div>
+
+      <!-- Live Conversation & Barge-In Stream -->
+      <div class="glass rounded-2xl p-3.5 flex flex-col h-[240px]">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-200">Live Voice Transcript &amp; Turn-Taking</h3>
+          <span id="speakingIndicator" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Idle</span>
+        </div>
+        <div id="transcriptFeed" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
+          <div class="text-slate-500 text-center mt-14 text-xs">
+            Start a Live Call or click <strong class="text-slate-300">Step 1</strong> to see real-time Hinglish dialogue, barge-in detection, and tool execution.
+          </div>
+        </div>
+      </div>
+
+      <!-- Organizational Knowledge Grounding (Company SOPs) -->
+      <div class="glass rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-extrabold uppercase tracking-wider text-cyan-300">Grounded Organizational Knowledge (SOPs)</h3>
+          <span class="text-[10px] text-slate-400">DeliverEx Policy Store</span>
+        </div>
+        <div id="policyList" class="space-y-2 max-h-[160px] overflow-y-auto pr-1"></div>
+      </div>
+
+      <!-- Real-Time Backend Tool Calls -->
+      <div class="glass rounded-2xl p-4 flex-1 flex flex-col min-h-[170px]">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-extrabold uppercase tracking-wider text-emerald-300">Live Action Execution Path (Tool Calls)</h3>
+          <span class="text-[10px] text-slate-400">Gemini Function Calling</span>
+        </div>
+        <div id="toolLog" class="flex-1 overflow-y-auto space-y-1.5 pr-1 text-[11px] mono">
+          <div class="text-slate-500 font-sans text-xs">Waiting for spoken intent to trigger ERP actions...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL (4 cols): HUMAN OVERSIGHT (PRIYA) + LIVE TALLY/SAP ERP -->
+    <section class="lg:col-span-4 flex flex-col gap-3">
+      <!-- Priya's 1-Tap Manager Approval Queue (HITL) -->
+      <div class="glass rounded-2xl p-4 border-amber-500/25">
+        <div class="flex items-center justify-between mb-2.5">
+          <div>
+            <h3 class="text-xs font-extrabold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+              <span>👩‍💼 Priya Sharma &bull; Manager Oversight (HITL)</span>
+            </h3>
+            <p class="text-[11px] text-slate-400">1-Tap WhatsApp Approval &amp; Live Call Handoff</p>
+          </div>
+          <span id="pendingApprovalCount" class="mono text-xs font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">0 Pending</span>
+        </div>
+        <div id="approvalQueue" class="space-y-2.5 max-h-[240px] overflow-y-auto pr-1"></div>
+      </div>
+
+      <!-- Live Tally / SAP Ledger -->
+      <div class="glass rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-extrabold uppercase tracking-wider text-white">Live Tally / SAP Accounting Ledger</h3>
+          <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-semibold">Auto-Synced</span>
+        </div>
+        <div class="overflow-x-auto max-h-[190px] overflow-y-auto">
+          <table class="w-full text-left text-[11px]">
+            <thead class="text-[10px] uppercase text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="py-1.5 pr-2">Ref / Shop</th>
+                <th class="py-1.5 pr-2">Bags</th>
+                <th class="py-1.5 pr-2">Cash / Disc</th>
+                <th class="py-1.5">Status</th>
+              </tr>
+            </thead>
+            <tbody id="ledgerTableBody" class="divide-y divide-slate-800/70"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Warehouse Inventory & Open Customer Invoices -->
+      <div class="glass rounded-2xl p-4 flex-1">
+        <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-200 mb-2">Warehouse Stock &amp; Open Invoices</h3>
+        <div class="grid grid-cols-1 gap-2" id="inventoryAndCustomers"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MAIN VIEW 2: BONUS INSIGHTS & COMMERCIAL ROI DASHBOARD -->
+  <section id="insightsView" class="hidden flex-1 max-w-[1680px] w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+    <!-- Field Intelligence Insights -->
+    <div class="lg:col-span-6 glass rounded-2xl p-5 flex flex-col gap-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-extrabold text-white">Auto-Captured Field Intelligence (Bonus Extension)</h2>
+          <p class="text-xs text-slate-400">Recurring operational issues extracted automatically from noisy voice calls</p>
+        </div>
+        <span class="text-xs px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-semibold">Live Pattern Engine</span>
+      </div>
+      <div id="insightsList" class="space-y-3 overflow-y-auto max-h-[540px] pr-1"></div>
+    </div>
+
+    <!-- Unit Economics & Commercial ROI Calculator -->
+    <div class="lg:col-span-6 glass rounded-2xl p-5 flex flex-col gap-4">
+      <div>
+        <h2 class="text-base font-extrabold text-white">Commercial Viability &amp; Unit Economics at Scale</h2>
+        <p class="text-xs text-slate-400">Adjust monthly field delivery volume to model MSME distributor savings</p>
+      </div>
+
+      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
+        <div class="flex justify-between items-center mb-2">
+          <label for="volumeSlider" class="text-xs font-bold text-slate-300">Monthly Deliveries / Field Calls</label>
+          <span id="volumeLabel" class="mono text-sm font-extrabold text-emerald-400">10,000 / month</span>
+        </div>
+        <input id="volumeSlider" type="range" min="1000" max="50000" step="1000" value="10000" oninput="updateRoiCalculator()" class="w-full accent-emerald-400" />
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
+          <div class="text-[11px] text-slate-400">Manual Back-Office Cost (₹30/call)</div>
+          <div id="roiManualCost" class="mono text-xl font-extrabold text-rose-400 mt-1">₹3,00,000</div>
+          <div class="text-[11px] text-slate-500 mt-1">Paper slips + call-center reconciliation</div>
+        </div>
+        <div class="bg-slate-900/80 border border-emerald-500/30 rounded-xl p-4">
+          <div class="text-[11px] text-emerald-300">DeliverEx Live Cost (₹2.20/call)</div>
+          <div id="roiAiCost" class="mono text-xl font-extrabold text-emerald-400 mt-1">₹22,000</div>
+          <div class="text-[11px] text-slate-400 mt-1">Gemini Live API + Cloud Run + WhatsApp</div>
+        </div>
+        <div class="bg-emerald-950/40 border border-emerald-500/40 rounded-xl p-4">
+          <div class="text-[11px] text-emerald-200">Net Monthly Savings</div>
+          <div id="roiSavings" class="mono text-2xl font-extrabold text-white mt-1">₹2,78,000</div>
+          <div id="roiMultiple" class="text-xs font-bold text-emerald-400 mt-1">13.6x ROI &bull; 92% Cost Reduction</div>
+        </div>
+        <div class="bg-slate-900/80 border border-cyan-500/30 rounded-xl p-4">
+          <div class="text-[11px] text-cyan-300">Operational Impact</div>
+          <div class="text-sm font-bold text-white mt-1">Reconciliation: 24 hrs &rarr; 18 sec</div>
+          <div class="text-xs text-slate-300 mt-1">First-Contact Resolution: 55% &rarr; 92%</div>
+          <div class="text-xs text-slate-400 mt-0.5">Languages: Hindi, Hinglish, Tamil, Marathi, Telugu</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
