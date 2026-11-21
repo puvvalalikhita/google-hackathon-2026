@@ -766,7 +766,7 @@ function toggleMarketNoise() {
   filter.Q.value = 0.7;
 
   const gain = noiseCtx.createGain();
-  gain.gain.value = 0.16;
+  gain.gain.value = 0.075;
 
   src.connect(filter);
   filter.connect(gain);

@@ -30,8 +30,8 @@ MANDATORY GROUNDING, COACHING & TOOL WORKFLOW:
 1. When a driver mentions a shop/customer name (e.g., Krishna Hardware, Shri Ganesh Stores, Murugan Builders, Bharat Traders), ALWAYS call `lookup_customer_and_invoice` first.
 2. Call `update_frontline_guidance` whenever intent, language, or customer sentiment shifts, giving the driver a short practical coaching tip and a polite phrase to calm/reassure the shop owner.
 3. Whenever a driver mentions a discount, damaged/torn bags, short delivery, or a dispute, ALWAYS call `check_company_policy` so your answer cites exact company SOP numbers (SOP-4.2: Rs 200 driver discount cap; SOP-5.1: damaged goods quarantine + Manager Priya approval).
-4. Once details are stated, call `record_delivery_and_update_ledger` immediately so Tally/SAP Ledger and Warehouse Stock update live.
-5. If a Manager Approval update arrives from the system (Priya approved/rejected/took over), immediately announce it to the driver in their language and confirm that the official WhatsApp receipt has been sent!
+4. Once details are stated — including in follow-up turns AFTER a torn-bag photo or manager approval has already happened — ALWAYS call `record_delivery_and_update_ledger` immediately whenever the driver gives delivered bag count and cash received (e.g., "20 bags delivered, 50,000 cash mila"), and verbally confirm the exact store name, bags, and cash posted to Tally/SAP!
+5. If a Manager Approval update arrives from the system (Priya approved/rejected/took over), immediately announce it to the driver in their language and confirm that the official WhatsApp receipt has been sent! Then keep listening for any additional delivery or cash updates.
 """
 
 
@@ -118,10 +118,7 @@ class LiveBridgeSession:
             try:
                 self.last_user_audio_ts = time.perf_counter()
                 self.awaiting_first_audio = True
-                await self.gemini_session.send_client_content(
-                    turns=types.Content(role="user", parts=[types.Part(text=prompt)]),
-                    turn_complete=True,
-                )
+                await self.gemini_session.send_realtime_input(text=prompt)
             except Exception as exc:
                 await self.send_ui({"type": "error", "message": f"Approval injection error: {exc}"})
 
@@ -187,6 +184,15 @@ class LiveBridgeSession:
             },
             "input_audio_transcription": {},
             "output_audio_transcription": {},
+            "realtime_input_config": {
+                "automatic_activity_detection": {
+                    "disabled": False,
+                    "start_of_speech_sensitivity": "START_SENSITIVITY_HIGH",
+                    "end_of_speech_sensitivity": "END_SENSITIVITY_HIGH",
+                    "prefix_padding_ms": 150,
+                    "silence_duration_ms": 550,
+                }
+            },
         }
 
         last_err: Optional[Exception] = None
@@ -225,16 +231,8 @@ class LiveBridgeSession:
                         # Proactively greet Raju in Hinglish as soon as the live call connects
                         self.last_user_audio_ts = time.perf_counter()
                         self.awaiting_first_audio = True
-                        await session.send_client_content(
-                            turns=types.Content(
-                                role="user",
-                                parts=[
-                                    types.Part(
-                                        text="[CALL CONNECTED]: Driver Raju just started the call. Greet him in 1 short friendly Hinglish sentence: 'Namaste Raju bhai, DeliverEx Live bol raha hoon — bataiye kis shop pe delivery hui?'"
-                                    )
-                                ],
-                            ),
-                            turn_complete=True,
+                        await session.send_realtime_input(
+                            text="[CALL CONNECTED]: Driver Raju just started the call. Greet him in 1 short friendly Hinglish sentence: 'Namaste Raju bhai, DeliverEx Live bol raha hoon — bataiye kis shop pe delivery hui?'"
                         )
 
                         done, pending = await asyncio.wait(
@@ -312,10 +310,7 @@ class LiveBridgeSession:
                             f"[STORE CONTEXT: {store_tag} ({inv_tag}) — Visual damage proof already attached to Priya's approval card {proof_info.get('attached_to_approval') or ''}] "
                             + msg["prompt"]
                         )
-                        await self.gemini_session.send_client_content(
-                            turns=types.Content(role="user", parts=[types.Part(text=enriched_prompt)]),
-                            turn_complete=True,
-                        )
+                        await self.gemini_session.send_realtime_input(text=enriched_prompt)
                     await self.send_ui({"type": "erp_state", "state": get_full_state()})
 
             elif msg_type == "text_turn" and self.gemini_session is not None:
@@ -324,10 +319,7 @@ class LiveBridgeSession:
                     self.last_user_audio_ts = time.perf_counter()
                     self.awaiting_first_audio = True
                     await self.send_ui({"type": "transcript", "role": "user", "text": text, "final": True})
-                    await self.gemini_session.send_client_content(
-                        turns=types.Content(role="user", parts=[types.Part(text=text)]),
-                        turn_complete=True,
-                    )
+                    await self.gemini_session.send_realtime_input(text=text)
 
             elif msg_type == "ping":
                 await self.send_ui({"type": "pong"})
