@@ -2,6 +2,11 @@
 
 > **Google Hackathon Prototype** — Real-time native voice-to-voice Customer & Frontline Ops Agent for Indian MSME logistics, combining **Gemini Live API** (sub-second Hinglish/Indic voice + mid-sentence barge-in) with **WhatsApp Voice Notes**, **Tally/SAP ERP auto-sync**, and **1-Tap Manager Approval (Human-in-the-Loop)**.
 
+### Live Production Server & Android App
+- **Live Web App & Backend (Cloud Run):** https://deliverex-live-353183969363.asia-south1.run.app
+- **Health & Go-Live Check:** https://deliverex-live-353183969363.asia-south1.run.app/api/health
+- **Native Android App (Kotlin + Jetpack Compose, Play Store-ready):** [`android-app/`](./android-app) (see [`android-app/PLAY_STORE_RELEASE_GUIDE.md`](./android-app/PLAY_STORE_RELEASE_GUIDE.md))
+
 ---
 
 ## Why DeliverEx Live (v2) Beats Top Hackathon Winners
