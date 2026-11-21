@@ -120,6 +120,15 @@ async function startLiveCall() {
   clearInterval(callTimerInterval);
   callTimerInterval = setInterval(updateCallTimer, 1000);
 
+  // Unlock playback AudioContext INSIDE the user click gesture (critical for Chrome HTTPS autoplay policy!)
+  if (!playbackCtx) {
+    playbackCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+  }
+  if (playbackCtx.state === "suspended") {
+    try { await playbackCtx.resume(); } catch {}
+  }
+  nextPlayTime = playbackCtx.currentTime;
+
   const btn = document.getElementById("callToggleBtn");
   btn.textContent = "🔴 End Live Call";
   btn.className = "flex-1 py-2.5 px-4 rounded-xl font-bold text-sm bg-rose-500 hover:bg-rose-400 text-white transition shadow-lg shadow-rose-500/25";
@@ -193,6 +202,9 @@ async function startMicStreaming() {
   });
 
   captureCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (captureCtx.state === "suspended") {
+    try { await captureCtx.resume(); } catch {}
+  }
   await captureCtx.audioWorklet.addModule("/static/pcm-processor.js");
 
   const src = captureCtx.createMediaStreamSource(mediaStream);
@@ -201,7 +213,7 @@ async function startMicStreaming() {
   workletNode.port.onmessage = (event) => {
     const { pcm, rms } = event.data;
     currentEnergy = Math.max(0.02, Math.min(1, rms * 8));
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN || !liveReady) return;
 
     const bytes = new Uint8Array(pcm);
     let binary = "";

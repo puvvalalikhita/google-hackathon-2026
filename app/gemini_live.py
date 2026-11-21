@@ -219,6 +219,21 @@ class LiveBridgeSession:
                         recv_task = asyncio.create_task(self._receive_from_gemini())
                         send_task = asyncio.create_task(self._receive_from_browser())
 
+                        # Proactively greet Raju in Hinglish as soon as the live call connects
+                        self.last_user_audio_ts = time.perf_counter()
+                        self.awaiting_first_audio = True
+                        await session.send_client_content(
+                            turns=types.Content(
+                                role="user",
+                                parts=[
+                                    types.Part(
+                                        text="[CALL CONNECTED]: Driver Raju just started the call. Greet him in 1 short friendly Hinglish sentence: 'Namaste Raju bhai, DeliverEx Live bol raha hoon — bataiye kis shop pe delivery hui?'"
+                                    )
+                                ],
+                            ),
+                            turn_complete=True,
+                        )
+
                         done, pending = await asyncio.wait(
                             [recv_task, send_task], return_when=asyncio.FIRST_COMPLETED
                         )
@@ -359,7 +374,7 @@ class LiveBridgeSession:
                                 b64_audio = base64.b64encode(inline.data).decode("ascii")
                                 await self.send_ui({"type": "audio_out", "data": b64_audio})
 
-                            elif getattr(part, "text", None):
+                            elif getattr(part, "text", None) and not getattr(part, "thought", False):
                                 await self.send_ui(
                                     {
                                         "type": "transcript",
