@@ -1,0 +1,12 @@
+.venv/
+.git/
+__pycache__/
+*.pyc
+*.pyo
+.env
+deliverex.db
+deliverex.db-wal
+deliverex.db-shm
+.pytest_cache/
+.vscode/
+android-app/

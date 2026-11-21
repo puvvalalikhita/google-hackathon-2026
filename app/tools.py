@@ -2,7 +2,7 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
-from app.database import _now_iso, find_customer, get_conn, get_full_state
+from app.database import _now_iso, add_whatsapp_message, find_customer, get_conn, get_full_state
 from app.policies import lookup_policies
 
 # Holds the latest multimodal camera/photo proof & active store context
@@ -13,12 +13,27 @@ LATEST_VISUAL_PROOF: Dict[str, Any] = {
 }
 
 
+def _safe_int(val: Any, default: int = 0) -> int:
+    if val is None or isinstance(val, bool):
+        return default
+    if isinstance(val, (int, float)):
+        return int(val)
+    cleaned = str(val).replace(",", "").strip()
+    if not cleaned:
+        return default
+    try:
+        return int(float(cleaned))
+    except (ValueError, TypeError):
+        return default
+
+
 def set_latest_visual_proof(
     data_url: Optional[str],
     caption: str = "Field Camera Proof",
     customer_name: Optional[str] = None,
     damaged_bags: int = 2,
     auto_create_approval: bool = False,
+    driver_name: str = "Raju Kumar",
 ) -> Dict[str, Any]:
     LATEST_VISUAL_PROOF["data_url"] = data_url
     LATEST_VISUAL_PROOF["caption"] = caption
@@ -39,17 +54,24 @@ def set_latest_visual_proof(
         ).fetchone()
         if row:
             attached_to = row["approval_id"]
-            new_dmg = max(int(row["damaged_qty"] or 0), int(damaged_bags or 0))
+            prev_dmg = _safe_int(row["damaged_qty"], 0)
+            new_dmg = max(prev_dmg, _safe_int(damaged_bags, 0))
+            dmg_delta = max(0, new_dmg - prev_dmg)
             cur.execute(
                 "UPDATE approvals SET proof_image = ?, damaged_qty = ? WHERE approval_id = ?",
                 (data_url, new_dmg, attached_to),
             )
+            if dmg_delta > 0:
+                cur.execute(
+                    "UPDATE inventory SET warehouse_stock = MAX(0, warehouse_stock - ?), damaged_quarantine = damaged_quarantine + ?, updated_at = ? WHERE sku_code = ?",
+                    (dmg_delta, dmg_delta, _now_iso(), cust["sku_code"]),
+                )
             conn.commit()
         elif auto_create_approval:
             # 2. If user clicked Show Torn Bags BEFORE logging delivery, create an explicit store-tagged SOP-5.1 approval card!
             now = _now_iso()
             attached_to = _short_id("APR")
-            dmg = max(1, int(damaged_bags or 2))
+            dmg = max(1, _safe_int(damaged_bags, 2))
             summary = f"{cust['name']} ({cust['pending_invoice_id']}): {dmg} torn/damaged bags visually verified via field camera — moved to quarantine"
             cur.execute(
                 """
@@ -57,17 +79,19 @@ def set_latest_visual_proof(
                     approval_id, created_at, driver_name, customer_id, customer_name,
                     entry_id, exception_type, policy_ref, summary, discount_requested,
                     damaged_qty, proof_image, status
-                ) VALUES (?, ?, 'Raju Kumar', ?, ?, NULL, 'DAMAGED_GOODS', 'SOP-5.1', ?, 0, ?, ?, 'PENDING')
+                ) VALUES (?, ?, ?, ?, ?, NULL, 'DAMAGED_GOODS', 'SOP-5.1', ?, 0, ?, ?, 'PENDING')
                 """,
-                (attached_to, now, cust["customer_id"], cust["name"], summary, dmg, data_url),
+                (attached_to, now, driver_name or "Raju Kumar", cust["customer_id"], cust["name"], summary, dmg, data_url),
             )
             cur.execute(
                 """
                 UPDATE inventory
-                SET damaged_quarantine = damaged_quarantine + ?, updated_at = ?
+                SET warehouse_stock = MAX(0, warehouse_stock - ?),
+                    damaged_quarantine = damaged_quarantine + ?,
+                    updated_at = ?
                 WHERE sku_code = ?
                 """,
-                (dmg, now, cust["sku_code"]),
+                (dmg, dmg, now, cust["sku_code"]),
             )
             cur.execute(
                 """
@@ -296,22 +320,31 @@ def execute_tool(
                 {"tool": name, "elapsed_ms": elapsed_ms, "status": "NEED_STORE_NAME"},
             )
         LATEST_VISUAL_PROOF["customer_name"] = cust["name"]
-        dmg = max(1, int(args.get("damaged_bags", 1) or 1))
+        dmg = max(1, _safe_int(args.get("damaged_bags", 1), 1))
+        driver = args.get("driver_name") or "Raju Kumar"
         notes = args.get("notes") or f"{dmg} torn/damaged bags reported at {cust['name']}"
         now = _now_iso()
         conn = get_conn()
         cur = conn.cursor()
 
         existing = cur.execute(
-            "SELECT approval_id FROM approvals WHERE status = 'PENDING' AND customer_id = ? ORDER BY created_at DESC LIMIT 1",
+            "SELECT approval_id, damaged_qty FROM approvals WHERE status = 'PENDING' AND customer_id = ? ORDER BY created_at DESC LIMIT 1",
             (cust["customer_id"],),
         ).fetchone()
         if existing:
             approval_id = existing["approval_id"]
+            prev_dmg = _safe_int(existing["damaged_qty"], 0)
+            new_dmg = max(prev_dmg, dmg)
+            dmg_delta = max(0, new_dmg - prev_dmg)
             cur.execute(
                 "UPDATE approvals SET damaged_qty = ?, summary = ?, proof_image = COALESCE(proof_image, ?) WHERE approval_id = ?",
-                (dmg, f"{cust['name']} ({cust['pending_invoice_id']}): {notes}", LATEST_VISUAL_PROOF.get("data_url"), approval_id),
+                (new_dmg, f"{cust['name']} ({cust['pending_invoice_id']}): {notes}", LATEST_VISUAL_PROOF.get("data_url"), approval_id),
             )
+            if dmg_delta > 0:
+                cur.execute(
+                    "UPDATE inventory SET warehouse_stock = MAX(0, warehouse_stock - ?), damaged_quarantine = damaged_quarantine + ?, updated_at = ? WHERE sku_code = ?",
+                    (dmg_delta, dmg_delta, now, cust["sku_code"]),
+                )
         else:
             approval_id = _short_id("APR")
             cur.execute(
@@ -320,11 +353,12 @@ def execute_tool(
                     approval_id, created_at, driver_name, customer_id, customer_name,
                     entry_id, exception_type, policy_ref, summary, discount_requested,
                     damaged_qty, proof_image, status
-                ) VALUES (?, ?, 'Raju Kumar', ?, ?, NULL, 'DAMAGED_GOODS', 'SOP-5.1', ?, 0, ?, ?, 'PENDING')
+                ) VALUES (?, ?, ?, ?, ?, NULL, 'DAMAGED_GOODS', 'SOP-5.1', ?, 0, ?, ?, 'PENDING')
                 """,
                 (
                     approval_id,
                     now,
+                    driver,
                     cust["customer_id"],
                     cust["name"],
                     f"{cust['name']} ({cust['pending_invoice_id']}): {notes}",
@@ -333,8 +367,8 @@ def execute_tool(
                 ),
             )
             cur.execute(
-                "UPDATE inventory SET damaged_quarantine = damaged_quarantine + ?, updated_at = ? WHERE sku_code = ?",
-                (dmg, now, cust["sku_code"]),
+                "UPDATE inventory SET warehouse_stock = MAX(0, warehouse_stock - ?), damaged_quarantine = damaged_quarantine + ?, updated_at = ? WHERE sku_code = ?",
+                (dmg, dmg, now, cust["sku_code"]),
             )
             cur.execute(
                 """
@@ -372,10 +406,10 @@ def execute_tool(
             )
         LATEST_VISUAL_PROOF["customer_name"] = cust["name"]
 
-        delivered = int(args.get("delivered_bags", cust["expected_bags"]))
-        damaged = int(args.get("damaged_bags", 0) or 0)
-        cash = int(args.get("cash_received", 0) or 0)
-        discount = int(args.get("discount_requested", 0) or 0)
+        delivered = max(0, _safe_int(args.get("delivered_bags"), cust["expected_bags"]))
+        damaged = max(0, _safe_int(args.get("damaged_bags"), 0))
+        cash = max(0, _safe_int(args.get("cash_received"), 0))
+        discount = max(0, _safe_int(args.get("discount_requested"), 0))
         driver = args.get("driver_name") or "Raju Kumar"
         notes = args.get("notes") or f"{delivered} bags delivered, Rs {cash} cash received"
 
@@ -386,6 +420,19 @@ def execute_tool(
 
         conn = get_conn()
         cur = conn.cursor()
+
+        # Check if an unlinked visual-damage PENDING approval already exists for this customer (avoid double-counting quarantine)
+        unlinked_apr = cur.execute(
+            """
+            SELECT approval_id, damaged_qty, proof_image
+            FROM approvals
+            WHERE status = 'PENDING' AND customer_id = ? AND entry_id IS NULL AND exception_type = 'DAMAGED_GOODS'
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            (cust["customer_id"],),
+        ).fetchone()
+        already_quarantined = _safe_int(unlinked_apr["damaged_qty"], 0) if unlinked_apr else 0
+        net_new_damaged = max(0, damaged - already_quarantined)
 
         # 1. Insert Ledger entry
         cur.execute(
@@ -414,7 +461,7 @@ def execute_tool(
             ),
         )
 
-        # 2. Update Warehouse Inventory
+        # 2. Update Warehouse Inventory (without double-subtracting pre-quarantined damaged bags)
         cur.execute(
             """
             UPDATE inventory
@@ -423,7 +470,7 @@ def execute_tool(
                 updated_at = ?
             WHERE sku_code = ?
             """,
-            (delivered + damaged, damaged, now, cust["sku_code"]),
+            (delivered + net_new_damaged, net_new_damaged, now, cust["sku_code"]),
         )
 
         # 3. Update Customer Balance
@@ -440,41 +487,71 @@ def execute_tool(
 
         # 4. Route exception to Priya OR issue immediate receipt
         if needs_approval:
-            approval_id = _short_id("APR")
             reasons = []
             policy_refs = []
             if discount > 200:
                 reasons.append(f"Special discount of Rs {discount} exceeds driver auto-limit of Rs 200")
                 policy_refs.append("SOP-4.2")
-            if damaged > 0:
-                reasons.append(f"{damaged} damaged/torn bags moved to quarantine")
+            effective_damaged = max(damaged, already_quarantined)
+            if effective_damaged > 0:
+                reasons.append(f"{effective_damaged} damaged/torn bags moved to quarantine")
                 policy_refs.append("SOP-5.1")
 
             policy_ref = " & ".join(policy_refs)
             summary = f"{cust['name']} ({cust['pending_invoice_id']}): " + "; ".join(reasons)
-            cur.execute(
-                """
-                INSERT INTO approvals (
-                    approval_id, created_at, driver_name, customer_id, customer_name,
-                    entry_id, exception_type, policy_ref, summary, discount_requested,
-                    damaged_qty, proof_image, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')
-                """,
-                (
-                    approval_id,
-                    now,
-                    driver,
-                    cust["customer_id"],
-                    cust["name"],
-                    entry_id,
-                    "DISCOUNT_AND_DAMAGE" if (discount > 200 and damaged > 0) else ("SPECIAL_DISCOUNT" if discount > 200 else "DAMAGED_GOODS"),
-                    policy_ref,
-                    summary,
-                    discount,
-                    damaged,
-                    LATEST_VISUAL_PROOF.get("data_url"),
-                ),
+            exc_type = (
+                "DISCOUNT_AND_DAMAGE"
+                if (discount > 200 and effective_damaged > 0)
+                else ("SPECIAL_DISCOUNT" if discount > 200 else "DAMAGED_GOODS")
             )
+
+            if unlinked_apr:
+                approval_id = unlinked_apr["approval_id"]
+                cur.execute(
+                    """
+                    UPDATE approvals
+                    SET driver_name = ?, entry_id = ?, exception_type = ?, policy_ref = ?,
+                        summary = ?, discount_requested = ?, damaged_qty = ?,
+                        proof_image = COALESCE(proof_image, ?)
+                    WHERE approval_id = ?
+                    """,
+                    (
+                        driver,
+                        entry_id,
+                        exc_type,
+                        policy_ref,
+                        summary,
+                        discount,
+                        effective_damaged,
+                        LATEST_VISUAL_PROOF.get("data_url"),
+                        approval_id,
+                    ),
+                )
+            else:
+                approval_id = _short_id("APR")
+                cur.execute(
+                    """
+                    INSERT INTO approvals (
+                        approval_id, created_at, driver_name, customer_id, customer_name,
+                        entry_id, exception_type, policy_ref, summary, discount_requested,
+                        damaged_qty, proof_image, status
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')
+                    """,
+                    (
+                        approval_id,
+                        now,
+                        driver,
+                        cust["customer_id"],
+                        cust["name"],
+                        entry_id,
+                        exc_type,
+                        policy_ref,
+                        summary,
+                        discount,
+                        effective_damaged,
+                        LATEST_VISUAL_PROOF.get("data_url"),
+                    ),
+                )
             approval_payload = {
                 "approval_id": approval_id,
                 "policy_ref": policy_ref,
@@ -483,8 +560,8 @@ def execute_tool(
                 "status": "PENDING",
             }
 
-            # Add Field Intelligence insight if damaged bags occurred
-            if damaged > 0:
+            # Add Field Intelligence insight only if net new damaged bags occurred
+            if net_new_damaged > 0:
                 cur.execute(
                     """
                     INSERT INTO insights (created_at, route, category, severity, title, detail)
@@ -529,6 +606,21 @@ def execute_tool(
 
         conn.commit()
         conn.close()
+
+        if receipt_payload and channel not in {"WHATSAPP_VOICE_NOTE", "WHATSAPP_CHAT"}:
+            add_whatsapp_message(
+                sender="bot",
+                body=receipt_payload["message"],
+                msg_type="receipt",
+                driver_name="DeliverEx Ops",
+                metadata={
+                    "receipt_id": receipt_payload["receipt_id"],
+                    "customer_name": cust["name"],
+                    "tally_entry_id": entry_id,
+                    "channel": channel,
+                },
+            )
+
         elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
 
         result = {
@@ -561,6 +653,7 @@ def execute_tool(
         cust_id = cust["customer_id"] if cust else "CUST-UNKNOWN"
         cust_name = cust["name"] if cust else args.get("customer_name", "Unknown Shop")
         reason = args.get("reason", "Driver requested live manager support")
+        driver = args.get("driver_name") or "Raju Kumar"
         now = _now_iso()
         approval_id = _short_id("HANDOFF")
 
@@ -571,12 +664,13 @@ def execute_tool(
                 approval_id, created_at, driver_name, customer_id, customer_name,
                 entry_id, exception_type, policy_ref, summary, discount_requested,
                 damaged_qty, proof_image, status
-            ) VALUES (?, ?, 'Raju Kumar', ?, ?, NULL, 'LIVE_HANDOFF', 'SOP-6.0', ?, 0, 0, ?, 'PENDING')
+            ) VALUES (?, ?, ?, ?, ?, NULL, 'LIVE_HANDOFF', 'SOP-6.0', ?, 0, 0, ?, 'PENDING')
             """,
-            (approval_id, now, cust_id, cust_name, reason, LATEST_VISUAL_PROOF.get("data_url")),
+            (approval_id, now, driver, cust_id, cust_name, reason, LATEST_VISUAL_PROOF.get("data_url")),
         )
         conn.commit()
         conn.close()
+
         elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
         result = {
             "handoff_id": approval_id,
@@ -623,11 +717,17 @@ def decide_approval(approval_id: str, decision: str) -> Dict[str, Any]:
         raise ValueError(f"Approval {approval_id} not found")
 
     apr = dict(row)
+    if apr["status"] != "PENDING":
+        conn.close()
+        raise ValueError(f"Approval {approval_id} is already {apr['status']}")
+
     now = _now_iso()
     cur.execute(
         "UPDATE approvals SET status = ?, decided_at = ? WHERE approval_id = ?",
         (decision, now, approval_id),
     )
+    apr["status"] = decision
+    apr["decided_at"] = now
 
     receipt_payload = None
     cust = cur.execute("SELECT * FROM customers WHERE customer_id = ?", (apr["customer_id"],)).fetchone()
@@ -690,6 +790,53 @@ def decide_approval(approval_id: str, decision: str) -> Dict[str, Any]:
 
     conn.commit()
     conn.close()
+
+    if decision == "APPROVED" and receipt_payload:
+        add_whatsapp_message(
+            sender="bot",
+            body=receipt_payload["message"],
+            msg_type="receipt",
+            driver_name="Priya Sharma (Manager)",
+            metadata={
+                "receipt_id": receipt_payload["receipt_id"],
+                "approval_id": approval_id,
+                "customer_name": apr["customer_name"],
+                "decision": decision,
+            },
+        )
+    elif decision == "APPROVED":
+        add_whatsapp_message(
+            sender="bot",
+            body=(
+                f"✅ Manager Priya Sharma APPROVED exception {approval_id} for {apr['customer_name']} "
+                f"({apr['policy_ref']}). Tally/SAP & quarantine records updated!"
+            ),
+            msg_type="text",
+            driver_name="Priya Sharma (Manager)",
+            metadata={"approval_id": approval_id, "customer_name": apr["customer_name"], "decision": decision},
+        )
+    elif decision == "REJECTED":
+        add_whatsapp_message(
+            sender="bot",
+            body=(
+                f"❌ Manager Priya Sharma REJECTED extra discount (Rs {apr['discount_requested']}) for "
+                f"{apr['customer_name']}. Remaining balance stays open on customer credit ledger."
+            ),
+            msg_type="text",
+            driver_name="Priya Sharma (Manager)",
+            metadata={"approval_id": approval_id, "customer_name": apr["customer_name"], "decision": decision},
+        )
+    elif decision == "TAKE_OVER":
+        add_whatsapp_message(
+            sender="manager",
+            body=(
+                f"📞 Priya Sharma (Area Manager): Raju, main abhi {apr['customer_name']} ke customer se "
+                f"direct call/chat takeover kar rahi hoon ({approval_id})."
+            ),
+            msg_type="text",
+            driver_name="Priya Sharma (Manager)",
+            metadata={"approval_id": approval_id, "customer_name": apr["customer_name"], "decision": decision},
+        )
 
     return {
         "approval_id": approval_id,

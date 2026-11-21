@@ -1,32 +1,57 @@
+import hashlib
+import hmac
+import json
 import os
+import asyncio
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile, WebSocket
+from fastapi import FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from app.database import get_full_state, init_db
+from app.database import check_db_health, get_full_state, init_db
 from app.gemini_live import ACTIVE_SESSIONS, LiveBridgeSession
 from app.policies import COMPANY_POLICIES
 from app.tools import decide_approval, execute_tool, set_latest_visual_proof
+from app.tts import GREETING_TEXT, prewarm_common_tts, synthesize_speech_b64
 from app.whatsapp import process_whatsapp_voice_note, send_meta_whatsapp_message
+from app.workflows import (
+    evaluate_go_live_readiness,
+    is_vertex_configured,
+    reset_conversation_memory,
+    run_guided_workflow_step,
+    run_voice_agent_workflow,
+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    init_db(force_reset=False)
+    asyncio.create_task(prewarm_common_tts())
+    yield
+
+
 app = FastAPI(
     title="DeliverEx Live — Real-Time Gemini Voice & WhatsApp Field Ops",
-    version="1.0.0",
+    version="2.0.0",
+    lifespan=lifespan,
 )
+
+raw_origins = os.getenv("CORS_ALLOW_ORIGINS", "*").strip()
+allow_origins = [o.strip() for o in raw_origins.split(",") if o.strip()] or ["*"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allow_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -47,12 +72,29 @@ class DemoToolBody(BaseModel):
     channel: str = "GEMINI_LIVE_VOICE"
 
 
+class AgentTurnBody(BaseModel):
+    text: str
+    driver_name: str = "Raju Kumar"
+    active_store: Optional[str] = None
+    channel: str = "GEMINI_LIVE_VOICE"
+    lookup_only: bool = False
+    preferred_language: Optional[str] = None
+
+
 class ProofPhotoBody(BaseModel):
     data_url: str
     caption: str = "Field Camera Proof (Damaged Bags)"
     customer_name: Optional[str] = None
     damaged_bags: int = 2
     auto_create_approval: bool = True
+    driver_name: str = "Raju Kumar"
+
+
+class WhatsAppChatBody(BaseModel):
+    text: Optional[str] = None
+    driver_name: str = "Raju Kumar"
+    image_data_url: Optional[str] = None
+    active_store: Optional[str] = None
 
 
 @app.get("/")
@@ -64,13 +106,23 @@ async def root():
 async def health():
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     wa_token = os.getenv("WHATSAPP_ACCESS_TOKEN", "").strip()
+    use_vertex = is_vertex_configured(api_key)
+    db_health = check_db_health()
     return {
-        "status": "ok",
+        "status": "ok" if db_health.get("ok") else "degraded",
         "gemini_configured": bool(api_key),
+        "auth_mode": "vertex_ai" if use_vertex else ("ai_studio" if api_key else "workflow_offline"),
         "live_model": os.getenv("GEMINI_LIVE_MODEL", "gemini-3.8-live"),
         "voice_note_model": os.getenv("GEMINI_VOICE_NOTE_MODEL", "gemini-3.8-flash"),
         "whatsapp_configured": bool(wa_token and os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip()),
+        "environment": os.getenv("ENVIRONMENT", "development").strip().lower(),
+        "database_ok": db_health.get("ok", False),
     }
+
+
+@app.get("/api/go-live-check")
+async def api_go_live_check():
+    return evaluate_go_live_readiness()
 
 
 @app.get("/api/state")
@@ -78,22 +130,80 @@ async def api_state():
     return {"state": get_full_state(), "policies": COMPANY_POLICIES}
 
 
+class TtsBody(BaseModel):
+    text: str = GREETING_TEXT
+    language: Optional[str] = "Hinglish (HI+EN)"
+
+
+@app.post("/api/tts")
+async def api_tts(body: TtsBody):
+    audio_b64 = await synthesize_speech_b64(body.text, body.language)
+    return {
+        "audio_b64": audio_b64,
+        "audio_mime": "audio/mpeg" if audio_b64 else None,
+    }
+
+
 @app.post("/api/reset")
-async def api_reset():
+async def api_reset(x_admin_key: Optional[str] = Header(default=None)):
+    env_mode = os.getenv("ENVIRONMENT", "development").strip().lower()
+    allow_demo_reset = os.getenv("ALLOW_DEMO_RESET", "true").strip().lower() == "true"
+    admin_key = os.getenv("ADMIN_API_KEY", "").strip()
+
+    if env_mode == "production" and not allow_demo_reset:
+        if not admin_key or x_admin_key != admin_key:
+            raise HTTPException(status_code=403, detail="Reset disabled in production without valid X-Admin-Key")
+    elif admin_key and env_mode == "production" and x_admin_key != admin_key:
+        raise HTTPException(status_code=403, detail="Invalid X-Admin-Key")
+
     set_latest_visual_proof(None, "")
+    reset_conversation_memory()
     init_db(force_reset=True)
     await ACTIVE_SESSIONS.broadcast_erp_state()
     return {"status": "reset", "state": get_full_state()}
 
 
+@app.post("/api/agent/turn")
+async def api_agent_turn(body: AgentTurnBody):
+    if not body.text or not body.text.strip():
+        raise HTTPException(status_code=400, detail="Agent turn text is required")
+    res = await run_voice_agent_workflow(
+        body.text,
+        driver_name=body.driver_name,
+        active_store=body.active_store,
+        channel=body.channel,
+        lookup_only=body.lookup_only,
+        preferred_language=body.preferred_language,
+    )
+    res["audio_b64"] = await synthesize_speech_b64(res.get("reply_text") or "", res.get("detected_language"))
+    res["audio_mime"] = "audio/mpeg" if res["audio_b64"] else None
+    await ACTIVE_SESSIONS.broadcast_erp_state()
+    return res
+
+
+@app.post("/api/agent/guided/{step}")
+async def api_agent_guided(step: int, preferred_language: Optional[str] = Query(default=None)):
+    try:
+        res = await run_guided_workflow_step(step, preferred_language=preferred_language)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    res["audio_b64"] = await synthesize_speech_b64(res.get("reply_text") or "", res.get("detected_language"))
+    res["audio_mime"] = "audio/mpeg" if res["audio_b64"] else None
+    await ACTIVE_SESSIONS.broadcast_erp_state()
+    return res
+
+
 @app.post("/api/proof-photo")
 async def api_proof_photo(body: ProofPhotoBody):
+    if not body.data_url or not body.data_url.strip():
+        raise HTTPException(status_code=400, detail="data_url is required")
     info = set_latest_visual_proof(
         body.data_url,
         body.caption,
         customer_name=body.customer_name,
         damaged_bags=body.damaged_bags,
         auto_create_approval=body.auto_create_approval,
+        driver_name=body.driver_name,
     )
     await ACTIVE_SESSIONS.broadcast_erp_state()
     return {"proof": info, "state": get_full_state()}
@@ -125,19 +235,47 @@ async def api_decide_approval(approval_id: str, body: ApprovalDecisionBody):
     return res
 
 
+@app.get("/api/whatsapp/messages")
+async def api_whatsapp_messages():
+    return {"messages": get_full_state().get("whatsapp_messages", [])}
+
+
+@app.post("/api/whatsapp/message")
+async def api_whatsapp_message(body: WhatsAppChatBody):
+    if not (body.text and body.text.strip()) and not body.image_data_url:
+        raise HTTPException(status_code=400, detail="Message text or image_data_url is required")
+    result = await process_whatsapp_voice_note(
+        fallback_text=body.text,
+        driver_name=body.driver_name,
+        image_data_url=body.image_data_url,
+        active_store=body.active_store,
+    )
+    await ACTIVE_SESSIONS.broadcast_erp_state()
+    return result
+
+
 @app.post("/api/whatsapp/voice-note")
 async def api_whatsapp_voice_note(
     file: Optional[UploadFile] = File(default=None),
+    image: Optional[UploadFile] = File(default=None),
     text: Optional[str] = Form(default=None),
+    image_data_url: Optional[str] = Form(default=None),
+    active_store: Optional[str] = Form(default=None),
     driver_name: str = Form(default="Raju Kumar"),
 ):
     audio_bytes = await file.read() if file else None
     mime_type = (file.content_type or "audio/webm") if file else "audio/webm"
+    image_bytes = await image.read() if image else None
+    image_mime_type = (image.content_type or "image/jpeg") if image else "image/jpeg"
     result = await process_whatsapp_voice_note(
         audio_bytes=audio_bytes,
         mime_type=mime_type,
         fallback_text=text,
         driver_name=driver_name,
+        image_bytes=image_bytes,
+        image_mime_type=image_mime_type,
+        image_data_url=image_data_url,
+        active_store=active_store,
     )
     await ACTIVE_SESSIONS.broadcast_erp_state()
     return result
@@ -157,13 +295,31 @@ async def verify_whatsapp_webhook(
 
 
 @app.post("/webhook/whatsapp")
-async def receive_whatsapp_webhook(request: Request):
+async def receive_whatsapp_webhook(
+    request: Request,
+    x_hub_signature_256: Optional[str] = Header(default=None, alias="X-Hub-Signature-256"),
+):
     """
-    Receives real Meta WhatsApp Cloud API webhooks (audio voice notes or text messages),
-    downloads the OGG voice note from Meta Graph API if configured, runs Gemini Ops Agent,
-    updates Tally/SAP ERP, and sends back the WhatsApp confirmation.
+    Receives real Meta WhatsApp Cloud API webhooks (audio voice notes, images, or text messages),
+    verifies X-Hub-Signature-256 when WHATSAPP_APP_SECRET is configured, downloads media from
+    Meta Graph API, runs DeliverEx Ops Agent workflow, updates Tally/SAP ERP, and replies.
     """
-    payload = await request.json()
+    raw_body = await request.body()
+    app_secret = os.getenv("WHATSAPP_APP_SECRET", "").strip()
+    if app_secret:
+        if not x_hub_signature_256 or not x_hub_signature_256.startswith("sha256="):
+            raise HTTPException(status_code=403, detail="Missing X-Hub-Signature-256 header")
+        expected_sig = "sha256=" + hmac.new(
+            app_secret.encode("utf-8"), raw_body, hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(expected_sig, x_hub_signature_256):
+            raise HTTPException(status_code=403, detail="Invalid X-Hub-Signature-256")
+
+    try:
+        payload = json.loads(raw_body.decode("utf-8"))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON webhook payload")
+
     entries = payload.get("entry", [])
     processed = []
 
@@ -183,12 +339,14 @@ async def receive_whatsapp_webhook(request: Request):
                 msg_type = msg.get("type")
                 audio_bytes = None
                 mime_type = "audio/ogg"
+                image_bytes = None
+                image_mime_type = "image/jpeg"
                 fallback_text = None
+                token = os.getenv("WHATSAPP_ACCESS_TOKEN", "").strip()
 
                 if msg_type == "audio":
                     media_id = msg.get("audio", {}).get("id")
                     mime_type = msg.get("audio", {}).get("mime_type", "audio/ogg")
-                    token = os.getenv("WHATSAPP_ACCESS_TOKEN", "").strip()
                     if media_id and token:
                         async with httpx.AsyncClient(timeout=20.0) as client:
                             meta_res = await client.get(
@@ -204,16 +362,37 @@ async def receive_whatsapp_webhook(request: Request):
                                     )
                                     if bin_res.is_success:
                                         audio_bytes = bin_res.content
+                elif msg_type == "image":
+                    media_id = msg.get("image", {}).get("id")
+                    image_mime_type = msg.get("image", {}).get("mime_type", "image/jpeg")
+                    fallback_text = msg.get("image", {}).get("caption", "") or "Damaged bags photo proof"
+                    if media_id and token:
+                        async with httpx.AsyncClient(timeout=20.0) as client:
+                            meta_res = await client.get(
+                                f"https://graph.facebook.com/v21.0/{media_id}",
+                                headers={"Authorization": f"Bearer {token}"},
+                            )
+                            if meta_res.is_success:
+                                media_url = meta_res.json().get("url")
+                                if media_url:
+                                    bin_res = await client.get(
+                                        media_url,
+                                        headers={"Authorization": f"Bearer {token}"},
+                                    )
+                                    if bin_res.is_success:
+                                        image_bytes = bin_res.content
                 elif msg_type == "text":
                     fallback_text = msg.get("text", {}).get("body", "")
 
-                if audio_bytes or fallback_text:
+                if audio_bytes or image_bytes or fallback_text:
                     res = await process_whatsapp_voice_note(
                         audio_bytes=audio_bytes,
                         mime_type=mime_type,
                         fallback_text=fallback_text,
                         driver_name=driver_name,
                         sender_phone=sender,
+                        image_bytes=image_bytes,
+                        image_mime_type=image_mime_type,
                     )
                     await ACTIVE_SESSIONS.broadcast_erp_state()
                     processed.append(res["erp_result"])

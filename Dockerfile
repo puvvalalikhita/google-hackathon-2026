@@ -9,8 +9,11 @@ COPY app ./app
 COPY static ./static
 COPY .env.example ./.env.example
 
+RUN mkdir -p /app/data
+
 ENV PORT=8080
+ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
 
-# Cloud Run supports WebSockets out of the box on uvicorn
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
+# Single worker preserves in-memory WebSocket session registry + SQLite WAL consistency on Cloud Run
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --workers 1 --proxy-headers --forwarded-allow-ips='*'"]

@@ -1,406 +1,1114 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="dark" data-theme="gold">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DeliverEx Live — Gemini Live Voice Agent + WhatsApp Field Ops</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%2310b981'/><text x='50%25' y='56%25' text-anchor='middle' dominant-baseline='middle' font-family='Arial' font-weight='900' font-size='28' fill='%23020617'>DX</text></svg>" />
+  <title>DeliverEx Live — Pro Max Spatial Voice &amp; Field Ops Command</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%23fbbf24'/><text x='50%25' y='56%25' text-anchor='middle' dominant-baseline='middle' font-family='Arial' font-weight='900' font-size='28' fill='%23020617'>DX</text></svg>" />
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
-    body { font-family: 'Inter', system-ui, sans-serif; background: #070b14; color: #e2e8f0; }
-    .mono { font-family: 'JetBrains Mono', monospace; }
-    .glass { background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(12px); border: 1px solid rgba(148, 163, 184, 0.14); }
-    .wa-bg { background-color: #0b141a; background-image: radial-gradient(rgba(37, 211, 102, 0.06) 1px, transparent 1px); background-size: 18px 18px; }
-    .flash-row { animation: rowFlash 1.5s ease-out; }
-    @keyframes rowFlash {
-      0% { background-color: rgba(16, 185, 129, 0.35); }
-      100% { background-color: transparent; }
-    }
-    .pulse-ring { animation: pulseRing 1.8s infinite; }
-    @keyframes pulseRing {
-      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
-      70% { box-shadow: 0 0 0 14px rgba(16, 185, 129, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-    }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 999px; }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css?v=20261121_9" />
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col lg:flex-row relative selection:bg-amber-400/30 selection:text-amber-100">
 
-  <!-- TOP COMMAND BAR -->
-  <header class="border-b border-slate-800/80 bg-slate-950/90 sticky top-0 z-30">
-    <div class="max-w-[1680px] mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
+  <!-- 4D VOLUMETRIC AMBIENT SCENE -->
+  <div class="scene-4d" aria-hidden="true">
+    <div class="caustic-orb caustic-orb-1"></div>
+    <div class="caustic-orb caustic-orb-2"></div>
+    <div class="caustic-orb caustic-orb-3"></div>
+    <div class="scene-grid"></div>
+    <div class="scene-grain"></div>
+  </div>
+
+  <!-- PRO MAX SPATIAL LEFT COMMAND SIDEBAR -->
+  <aside class="sidebar-rail relative z-40 w-full lg:w-[272px] shrink-0 lg:sticky lg:top-0 lg:h-screen flex flex-col justify-between p-4 gap-4 overflow-y-auto">
+    <div class="space-y-4">
+      <!-- Brand Identity -->
       <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-slate-950 font-extrabold text-lg shadow-lg shadow-emerald-500/20">
+        <div class="theme-logo-badge relative w-11 h-11 rounded-2xl flex items-center justify-center text-slate-950 font-black text-base border border-white/40 z-lift-1 shrink-0">
           DX
+          <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-slate-950 animate-pulse"></span>
         </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h1 class="font-extrabold tracking-tight text-white text-base leading-none">DeliverEx Live</h1>
-            <span id="modeBadge" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
-              Checking Gemini API...
-            </span>
-          </div>
-          <p class="text-[11px] text-slate-400 mt-0.5">Real-Time Gemini Live Voice Agent &bull; Hinglish Field Ops &bull; Tally/SAP + 1-Tap WhatsApp Approval</p>
+        <div class="min-w-0">
+          <h1 class="font-heading font-extrabold tracking-tight text-white text-base leading-tight truncate">DeliverEx Live</h1>
+          <p class="text-[11px] text-slate-300/80 truncate">Spatial Voice &amp; ERP Ops</p>
         </div>
       </div>
 
-      <!-- LIVE TELEMETRY METRICS -->
-      <div class="flex items-center gap-2 flex-wrap">
-        <div class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-2">
-          <span class="text-[10px] uppercase tracking-wider text-slate-400">TTFA</span>
-          <span id="latencyBadge" class="mono text-xs font-bold text-emerald-400">-- ms</span>
-          <canvas id="latencySparkline" width="56" height="18" class="rounded bg-slate-950/70"></canvas>
+      <div id="modeBadge" class="text-[11px] font-semibold px-3 py-1.5 rounded-xl bg-amber-500/15 text-amber-200 border border-amber-400/35 backdrop-blur-md leading-snug">
+        Checking Gemini API...
+      </div>
+
+      <!-- Primary Workspace Navigation (>=44px touch targets) -->
+      <nav aria-label="Workspace Navigation" class="space-y-1.5">
+        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 mb-1">Command Views</div>
+        <button id="viewOpsBtn" onclick="switchMainView('ops')" class="btn-tactile w-full text-left flex items-center gap-2.5 min-h-[44px] px-3.5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-300 to-amber-500 text-slate-950">
+          <span>🎛️</span>
+          <span>Live Ops Bento</span>
+        </button>
+        <button id="viewRolesBtn" onclick="switchMainView('roles')" class="w-full text-left flex items-center gap-2.5 min-h-[44px] px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-200 hover:bg-white/10 transition">
+          <span>🕸️</span>
+          <span>Role Flow &amp; Matrix</span>
+        </button>
+        <button id="viewInsightsBtn" onclick="switchMainView('insights')" class="w-full text-left flex items-center gap-2.5 min-h-[44px] px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-200 hover:bg-white/10 transition">
+          <span>📊</span>
+          <span>Insights, ROI &amp; Go-Live</span>
+        </button>
+      </nav>
+
+      <!-- Live Telemetry Stack -->
+      <div class="glass-well rounded-2xl p-3 space-y-2.5">
+        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Live Audio &amp; Agent Telemetry</div>
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-slate-300">TTFA Latency</span>
+          <div class="flex items-center gap-2">
+            <span id="latencyBadge" class="mono text-xs font-bold text-emerald-400">-- ms</span>
+            <canvas id="latencySparkline" width="52" height="16" class="rounded bg-slate-950/75 border border-white/5"></canvas>
+          </div>
         </div>
-        <div class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-1.5">
-          <span class="text-[10px] uppercase tracking-wider text-slate-400">Noise</span>
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-slate-300">Acoustic Floor</span>
           <span id="noiseDbBadge" class="mono text-xs font-bold text-cyan-300">42 dB</span>
         </div>
-        <div class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-1.5">
-          <span class="text-[10px] uppercase tracking-wider text-slate-400">Barge-Ins</span>
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-slate-300">Barge-Ins</span>
           <span id="bargeInBadge" class="mono text-xs font-bold text-amber-400">0</span>
         </div>
-        <div class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-1.5">
-          <span class="text-[10px] uppercase tracking-wider text-slate-400">Lang</span>
-          <span id="langBadge" class="text-xs font-semibold text-cyan-300">Hinglish / Tanglish</span>
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-slate-300">Active Lang</span>
+          <span id="langBadge" class="text-[11px] font-semibold text-cyan-300 truncate max-w-[130px]">Hinglish / Tanglish</span>
         </div>
+      </div>
 
-        <div class="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 ml-1">
-          <button id="viewOpsBtn" onclick="switchMainView('ops')" class="px-3 py-1 rounded-md text-xs font-semibold bg-emerald-500 text-slate-950 transition">
-            Live Ops Console
-          </button>
-          <button id="viewInsightsBtn" onclick="switchMainView('insights')" class="px-3 py-1 rounded-md text-xs font-semibold text-slate-300 hover:text-white transition">
-            Insights &amp; ROI (Bonus)
-          </button>
+      <!-- Color Scheme Swatches (Royal Gold + All Themes) -->
+      <div class="glass-well rounded-2xl p-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Color Scheme</span>
+          <span id="activeThemeLabel" class="text-[10px] font-bold uppercase tracking-wider text-amber-200">Gold</span>
         </div>
+        <div class="flex items-center justify-between gap-1.5 pt-0.5">
+          <button type="button" onclick="setColorTheme('gold')" id="swatch-gold" class="theme-swatch active" style="background: linear-gradient(135deg, #fde68a, #f59e0b)" title="Royal Gold"></button>
+          <button type="button" onclick="setColorTheme('emerald')" id="swatch-emerald" class="theme-swatch" style="background: linear-gradient(135deg, #6ee7b7, #06b6d4)" title="Emerald Cyber"></button>
+          <button type="button" onclick="setColorTheme('sapphire')" id="swatch-sapphire" class="theme-swatch" style="background: linear-gradient(135deg, #60a5fa, #a78bfa)" title="Sapphire Violet"></button>
+          <button type="button" onclick="setColorTheme('ruby')" id="swatch-ruby" class="theme-swatch" style="background: linear-gradient(135deg, #fb7185, #ec4899)" title="Crimson Ruby"></button>
+          <button type="button" onclick="setColorTheme('platinum')" id="swatch-platinum" class="theme-swatch" style="background: linear-gradient(135deg, #f8fafc, #94a3b8)" title="Arctic Platinum"></button>
+          <button type="button" onclick="setColorTheme('sunset')" id="swatch-sunset" class="theme-swatch" style="background: linear-gradient(135deg, #fb923c, #f43f5e)" title="Sunset Copper"></button>
+        </div>
+      </div>
+    </div>
 
-        <button onclick="resetDemo()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
-          ↺ Reset Demo
+    <!-- Bottom Action Controls -->
+    <div class="space-y-2 pt-2 border-t border-white/10">
+      <button id="autoDemoBtn" onclick="runAutopilotShowcase()" class="btn-tactile w-full min-h-[44px] px-3 py-2 rounded-xl text-xs font-extrabold bg-gradient-to-r from-cyan-400/25 to-emerald-500/25 text-cyan-100 border border-cyan-400/45">
+        ▶ Auto-Run Agent
+      </button>
+      <div class="grid grid-cols-3 gap-1.5">
+        <button id="toggleSfxBtn" onclick="toggleSfxMode()" class="btn-tactile min-h-[38px] px-2 py-1.5 rounded-xl text-[11px] font-semibold bg-white/10 text-slate-200 border border-white/15" title="Toggle WebAudio spatial UI chimes">
+          🔊 SFX: ON
+        </button>
+        <button id="toggle4dBtn" onclick="toggle4dMode()" class="btn-tactile min-h-[38px] px-2 py-1.5 rounded-xl text-[11px] font-semibold bg-white/10 text-slate-200 border border-white/15" title="Toggle 4D spatial tile tilt">
+          4D: ON
+        </button>
+        <button onclick="resetDemo()" class="btn-tactile min-h-[38px] px-2 py-1.5 rounded-xl text-[11px] font-semibold bg-white/10 hover:bg-white/15 text-slate-100 border border-white/15">
+          ↺ Reset
         </button>
       </div>
     </div>
-  </header>
+  </aside>
 
-  <!-- MAIN VIEW 1: 3-PANEL LIVE COMMAND CENTER -->
-  <main id="opsView" class="flex-1 max-w-[1680px] w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+  <!-- RIGHT MAIN BENTO WORKSPACE -->
+  <div class="flex-1 min-w-0 relative z-10 flex flex-col">
 
-    <!-- LEFT PANEL (4 cols): RAJU'S MOBILE FIELD AGENT INTERFACE -->
-    <section class="lg:col-span-4 flex flex-col gap-3">
-      <div class="glass rounded-2xl overflow-hidden flex flex-col h-full">
-        <!-- Phone Header + Channel Switcher -->
-        <div class="px-4 py-3 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
-          <div>
-            <div class="text-xs font-bold text-white flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-              Raju Kumar &bull; Field Driver
-            </div>
-            <div class="text-[11px] text-slate-400">Old Delhi Wholesale Market (Route-4)</div>
+    <!-- MAIN VIEW 1: PRO MAX ASYMMETRIC BENTO COMMAND CENTER -->
+    <main id="opsView" class="flex-1 max-w-[1600px] w-full mx-auto p-3 sm:p-5 flex flex-col gap-4">
+
+      <!-- EXECUTIVE 4-KPI BENTO STRIP -->
+      <section class="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        <div class="glass-4d glass-emerald rounded-2xl px-4 py-3.5 flex items-center justify-between">
+          <div class="z-lift-1">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Cash Collected (Tally)</div>
+            <div id="kpiCashCollected" class="mono text-2xl font-black text-white mt-0.5">₹0</div>
+            <div id="kpiLedgerCount" class="text-[11px] text-slate-300 mt-0.5">0 ledger entries synced</div>
           </div>
-          <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[11px]">
-            <button id="tabLiveCall" onclick="switchDriverTab('live')" class="px-2.5 py-1 rounded-md font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              Live Voice
+          <div class="w-11 h-11 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-lg z-lift-2">₹</div>
+        </div>
+
+        <div class="glass-4d glass-cyan rounded-2xl px-4 py-3.5 flex items-center justify-between">
+          <div class="z-lift-1">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-cyan-300">Bags Delivered / Quarantine</div>
+            <div id="kpiBagsStats" class="mono text-2xl font-black text-white mt-0.5">0 ok • 0 dmg</div>
+            <div id="kpiWarehouseTotal" class="text-[11px] text-slate-300 mt-0.5">Warehouse stock loading...</div>
+          </div>
+          <div class="w-11 h-11 rounded-2xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-lg z-lift-2">📦</div>
+        </div>
+
+        <div class="glass-4d glass-amber rounded-2xl px-4 py-3.5 flex items-center justify-between">
+          <div class="z-lift-1">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-amber-300">Manager HITL Queue</div>
+            <div id="kpiPendingHits" class="mono text-2xl font-black text-white mt-0.5">0 Pending</div>
+            <div id="kpiTotalApprovals" class="text-[11px] text-slate-300 mt-0.5">0 total exceptions</div>
+          </div>
+          <div class="w-11 h-11 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-lg z-lift-2">👩‍💼</div>
+        </div>
+
+        <div class="glass-4d rounded-2xl px-4 py-3.5 flex items-center justify-between">
+          <div class="z-lift-1">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-indigo-300">Invoices Settled</div>
+            <div id="kpiSettledRatio" class="mono text-2xl font-black text-white mt-0.5">0 / 4</div>
+            <div id="kpiTotalDue" class="text-[11px] text-slate-300 mt-0.5">Outstanding: ₹0</div>
+          </div>
+          <div class="w-11 h-11 rounded-2xl bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center text-lg z-lift-2">🧾</div>
+        </div>
+      </section>
+
+      <!-- HYBRID CONNECTED AGENT FLOW STRIP -->
+      <section class="glass-4d rounded-2xl p-3.5">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <h2 class="text-xs font-extrabold uppercase tracking-wider text-white">Hybrid Agent Flow &amp; Total Role Status</h2>
+            <span id="opsRoleOverallBadge" class="mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-200 border border-cyan-400/35">0% Routes Settled</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="w-32 sm:w-44 h-2 rounded-full glass-well overflow-hidden">
+              <div id="opsRoleProgressBar" class="h-full bg-gradient-to-r from-amber-300 via-emerald-400 to-cyan-400 transition-all duration-500" style="width: 0%"></div>
+            </div>
+            <button onclick="switchMainView('roles')" class="btn-tactile px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/10 text-cyan-200 border border-cyan-400/35">
+              Full Role Matrix &rarr;
             </button>
-            <button id="tabWhatsApp" onclick="switchDriverTab('whatsapp')" class="px-2.5 py-1 rounded-md font-semibold text-slate-400 hover:text-white">
-              WhatsApp Note
-            </button>
           </div>
         </div>
 
-        <!-- TAB A: GEMINI LIVE VOICE CALL -->
-        <div id="driverLivePanel" class="p-4 flex-1 flex flex-col justify-between gap-3">
-          <!-- Call Card -->
-          <div class="wa-bg rounded-2xl border border-emerald-500/20 p-4 flex flex-col items-center text-center relative overflow-hidden">
-            <div class="flex items-center justify-between w-full mb-2">
-              <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
-                DeliverEx AI &bull; Verified Business
-              </span>
-              <span id="callTimer" class="mono text-xs text-slate-400">00:00</span>
+        <div class="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 lg:gap-0">
+          <button id="opsFlowNode1" type="button" onclick="switchMainView('roles')" class="subtile-4d flex-1 text-left rounded-xl px-3 py-2.5 border-white/10 hover:border-emerald-400/45">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[11px] font-bold text-white">🚚 1. Field Driver</span>
+              <span id="stripRoleDriverBadge" class="mono text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-200 border border-white/15">STANDBY</span>
+            </div>
+            <div id="stripRoleDriverMeta" class="text-[11px] text-slate-300 mt-1 truncate">Route-4 &amp; Route-7 • 0 bags logged</div>
+          </button>
+
+          <div class="hidden lg:flex items-center justify-center w-9 shrink-0" aria-hidden="true">
+            <svg width="36" height="24" viewBox="0 0 36 24" class="overflow-visible">
+              <line id="opsWire1" x1="0" y1="12" x2="30" y2="12" stroke="#22d3ee" stroke-width="2" class="wire-line" />
+              <polygon points="28,7 36,12 28,17" fill="#22d3ee" />
+            </svg>
+          </div>
+
+          <button id="opsFlowNode2" type="button" onclick="switchMainView('roles')" class="subtile-4d flex-1 text-left rounded-xl px-3 py-2.5 border-white/10 hover:border-cyan-400/45">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[11px] font-bold text-white">🤖 2. Gemini AI Agent</span>
+              <span id="stripRoleAgentBadge" class="mono text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-400/35">READY</span>
+            </div>
+            <div id="stripRoleAgentMeta" class="text-[11px] text-slate-300 mt-1 truncate">0 tool calls • 0 SOPs grounded</div>
+          </button>
+
+          <div class="hidden lg:flex items-center justify-center w-9 shrink-0" aria-hidden="true">
+            <svg width="36" height="24" viewBox="0 0 36 24" class="overflow-visible">
+              <line id="opsWire2" x1="0" y1="12" x2="30" y2="12" stroke="#fbbf24" stroke-width="2" class="wire-line" />
+              <polygon points="28,7 36,12 28,17" fill="#fbbf24" />
+            </svg>
+          </div>
+
+          <button id="opsFlowNode3" type="button" onclick="switchMainView('roles')" class="subtile-4d flex-1 text-left rounded-xl px-3 py-2.5 border-white/10 hover:border-amber-400/45">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[11px] font-bold text-white">👩‍💼 3. Manager Priya</span>
+              <span id="stripRoleManagerBadge" class="mono text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/35">CLEAR</span>
+            </div>
+            <div id="stripRoleManagerMeta" class="text-[11px] text-slate-300 mt-1 truncate">0 pending • 0 approved • 0 handoffs</div>
+          </button>
+
+          <div class="hidden lg:flex items-center justify-center w-9 shrink-0" aria-hidden="true">
+            <svg width="36" height="24" viewBox="0 0 36 24" class="overflow-visible">
+              <line id="opsWire3" x1="0" y1="12" x2="30" y2="12" stroke="#34d399" stroke-width="2" class="wire-line" />
+              <polygon points="28,7 36,12 28,17" fill="#34d399" />
+            </svg>
+          </div>
+
+          <button id="opsFlowNode4" type="button" onclick="switchMainView('roles')" class="subtile-4d flex-1 text-left rounded-xl px-3 py-2.5 border-white/10 hover:border-indigo-400/45">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[11px] font-bold text-white">🧾 4. Tally &amp; WhatsApp</span>
+              <span id="stripRoleErpBadge" class="mono text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/35">SYNCED</span>
+            </div>
+            <div id="stripRoleErpMeta" class="text-[11px] text-slate-300 mt-1 truncate">0/4 settled • 0 receipts sent</div>
+          </button>
+        </div>
+      </section>
+
+      <!-- ASYMMETRIC PRO MAX BENTO WORKSPACE (5 Col Voice Studio + 7 Col Agent & ERP Command) -->
+      <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+
+        <!-- LEFT BENTO HERO (5 cols): VOICE AI STUDIO & MULTIMODAL HANDSET -->
+        <section class="xl:col-span-5 flex flex-col">
+          <div class="glass-4d handset-chassis rounded-[28px] overflow-hidden flex flex-col">
+            <!-- Handset Header -->
+            <div class="px-4 pt-3 pb-2.5 border-b border-white/10 bg-slate-950/55">
+              <div class="flex items-center justify-between text-[10px] text-slate-400 mb-2">
+                <span class="mono font-semibold text-emerald-300">5G • VOLTE</span>
+                <div class="px-3 py-0.5 rounded-full bg-black/70 border border-white/15 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span class="text-[10px] font-bold text-slate-200 tracking-wide">FIELD HANDSET • ROUTE-4</span>
+                </div>
+                <span class="mono">94% 🔋</span>
+              </div>
+
+              <div class="flex items-center justify-between gap-2">
+                <div>
+                  <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    Raju Kumar &bull; Field Driver
+                  </div>
+                  <div class="text-[11px] text-slate-300/80">Old Delhi Wholesale Market</div>
+                </div>
+                <div class="glass-well flex p-0.5 rounded-xl text-[11px]">
+                  <button id="tabLiveCall" onclick="switchDriverTab('live')" class="btn-tactile px-2.5 py-1.5 rounded-lg font-semibold bg-emerald-500/25 text-emerald-200 border border-emerald-400/40">
+                    Live Voice
+                  </button>
+                  <button id="tabWhatsApp" onclick="switchDriverTab('whatsapp')" class="px-2.5 py-1.5 rounded-lg font-semibold text-slate-300 hover:text-white transition flex items-center gap-1">
+                    <span>WhatsApp Chat</span>
+                    <span id="waUnreadBadge" class="hidden px-1.5 py-0.5 rounded-full bg-emerald-400 text-slate-950 text-[9px] font-black leading-none">0</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div id="avatarRing" class="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-2xl font-bold text-slate-950 my-2 shadow-lg">
-              🎙️
+            <!-- TAB A: GEMINI LIVE VOICE STUDIO -->
+            <div id="driverLivePanel" class="p-4 flex flex-col gap-3">
+              <div class="wa-glass-screen rounded-2xl p-4 flex flex-col items-center text-center relative overflow-hidden">
+                <div class="flex items-center justify-between w-full mb-1">
+                  <span id="voiceCatcherPill" class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/35 flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Voice Catcher • Standby</span>
+                  </span>
+                  <span id="callTimer" class="mono text-xs font-semibold text-slate-200 px-2 py-0.5 rounded-md bg-black/45 border border-white/10">00:00</span>
+                </div>
+
+                <!-- 2026 3D FLUID PLASMA INTERACTIVE VOICE ORB -->
+                <div id="plasmaOrbShell" onclick="toggleLiveCall()" class="plasma-orb-shell my-1" title="Click the 3D Fluid Voice Orb to start or end call">
+                  <canvas id="plasmaOrbCanvas" width="210" height="210" class="plasma-orb-canvas"></canvas>
+                  <div id="avatarRing" class="plasma-orb-center-badge text-white">
+                    <svg class="w-6 h-6 drop-shadow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="9" y="2" width="6" height="11" rx="3" fill="rgba(255,255,255,0.18)" />
+                      <path d="M5 10a7 7 0 0 0 14 0" />
+                      <line x1="12" y1="17" x2="12" y2="21" />
+                      <line x1="8" y1="21" x2="16" y2="21" />
+                    </svg>
+                  </div>
+                </div>
+
+                <h2 id="callStatusTitle" class="text-sm font-extrabold text-white z-lift-1">Tap to Start Real-Time Voice Call</h2>
+                <p id="callStatusSub" class="text-[11px] text-slate-300 mt-0.5">Native Gemini Voice-to-Voice &bull; Speak Hinglish &bull; Interrupt Anytime</p>
+
+                <!-- Liquid-Silk Voice Catcher -->
+                <div class="w-full mt-2.5 rounded-xl glass-well p-2 relative overflow-hidden">
+                  <div class="flex items-center justify-between text-[9px] mono text-slate-300 px-1 mb-1">
+                    <span class="flex items-center gap-1.5">
+                      <span class="w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse"></span>
+                      <span>16kHz/24kHz VOICE CATCHER</span>
+                    </span>
+                    <span id="voiceDbReadout" class="text-amber-300 font-bold">-38 dBFS</span>
+                  </div>
+                  <canvas id="waveCanvas" width="360" height="78" class="w-full h-[78px] block rounded-lg"></canvas>
+                </div>
+
+                <!-- Animated Catch -> Work -> Ask Again Loop -->
+                <div id="voiceLoopTheater" class="w-full mt-2.5 rounded-xl glass-well p-2.5 text-left">
+                  <div class="flex items-center gap-1.5">
+                    <div id="vLoopCatch" class="voice-loop-node flex-1 rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center">
+                      <div class="text-[10px] font-bold text-white">🎙️ Catch</div>
+                      <div class="text-[9px] text-slate-300 truncate">Driver Voice</div>
+                    </div>
+                    <div id="vLoopTrack1" class="voice-packet-track w-6 shrink-0"><div class="voice-packet-dot"></div></div>
+                    <div id="vLoopWork" class="voice-loop-node flex-1 rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center">
+                      <div class="text-[10px] font-bold text-cyan-200"><span id="vLoopWorkGear">⚙️</span> Work</div>
+                      <div class="text-[9px] text-slate-300 truncate">Agents + ERP</div>
+                    </div>
+                    <div id="vLoopTrack2" class="voice-packet-track w-6 shrink-0"><div class="voice-packet-dot"></div></div>
+                    <div id="vLoopAsk" class="voice-loop-node flex-1 rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center">
+                      <div class="text-[10px] font-bold text-emerald-200">💬 Ask Again</div>
+                      <div class="text-[9px] text-slate-300 truncate">Confirm / Loop</div>
+                    </div>
+                  </div>
+                  <div id="voiceLoopCaption" class="mt-1.5 text-[10px] text-slate-200 flex items-center gap-1.5 truncate">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>
+                    <span>Voice catcher armed — ready to catch speech, run agents &amp; ask back.</span>
+                  </div>
+                </div>
+
+                <!-- Adaptive Conversation Language -->
+                <div class="flex items-center gap-2 mt-3 w-full">
+                  <span class="text-[10px] text-slate-300 font-bold uppercase tracking-wider whitespace-nowrap">🌐 Language</span>
+                  <select id="voiceLangSelect" onchange="onVoiceLangChange()" class="flex-1 glass-well rounded-lg px-2.5 py-2 text-[11px] font-semibold text-amber-200 focus:outline-none focus:border-amber-400" title="Auto adapts to whatever language the driver speaks">
+                    <option value="auto">✨ Auto-Adapt (matches driver)</option>
+                    <option value="en">English</option>
+                    <option value="hinglish">Hinglish (Hindi + English)</option>
+                    <option value="hi">हिंदी (Hindi)</option>
+                    <option value="tanglish">Tanglish (Tamil + English)</option>
+                    <option value="ta">தமிழ் (Tamil)</option>
+                    <option value="tenglish">Tenglish (Telugu + English)</option>
+                    <option value="te">తెలుగు (Telugu)</option>
+                  </select>
+                  <span id="voiceLangBadge" class="text-[10px] font-bold px-2 py-1 rounded-full bg-amber-500/15 text-amber-200 border border-amber-400/35 whitespace-nowrap">Hinglish</span>
+                </div>
+
+                <!-- Tactile >=44px Primary Controls -->
+                <div class="flex items-center gap-2 mt-3 w-full">
+                  <button id="callToggleBtn" onclick="toggleLiveCall()" class="btn-tactile flex-1 whitespace-nowrap min-h-[44px] py-2.5 px-3 rounded-xl font-extrabold text-sm bg-gradient-to-b from-emerald-400 to-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/25">
+                    📞 Start Live Call
+                  </button>
+                  <button id="endTurnBtn" onclick="forceEndTurn()" class="hidden btn-tactile min-h-[44px] py-2.5 px-3 rounded-xl font-bold text-xs bg-cyan-500/25 text-cyan-100 border border-cyan-400/40" title="Tap if noisy room prevents auto end-of-speech">
+                    ✓ Reply Now
+                  </button>
+                  <button id="noiseToggleBtn" onclick="toggleMarketNoise()" class="btn-tactile min-h-[44px] py-2.5 px-3 rounded-xl font-semibold text-xs bg-white/10 text-slate-100 border border-white/15" title="Simulate noisy wholesale market traffic & chatter">
+                    🔊 Noise: OFF
+                  </button>
+                </div>
+
+                <!-- Multimodal Vision Proof -->
+                <div class="w-full mt-3 pt-3 border-t border-white/10">
+                  <div class="flex items-center justify-between text-[10px] text-cyan-300 font-bold uppercase tracking-wider mb-1.5">
+                    <span>👁️ Multimodal Vision Proof</span>
+                    <span id="visionStatusBadge" class="text-slate-200 font-semibold px-2 py-0.5 rounded-full bg-white/5 border border-white/10">Ready</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 mb-2">
+                    <span class="text-[10px] text-slate-300 whitespace-nowrap">Active Store:</span>
+                    <select id="activeStoreSelect" class="flex-1 glass-well rounded-lg px-2.5 py-2 text-[11px] font-semibold text-cyan-200 focus:outline-none focus:border-cyan-400">
+                      <option value="Krishna Hardware">Krishna Hardware (INV-8841 • Old Delhi)</option>
+                      <option value="Shri Ganesh Stores">Shri Ganesh Stores (INV-8845 • Chandni Chowk)</option>
+                      <option value="Bharat Traders">Bharat Traders (INV-8850 • Sadar Bazar)</option>
+                      <option value="Murugan Builders">Murugan Builders (INV-8862 • T. Nagar Chennai)</option>
+                    </select>
+                  </div>
+                  <div class="flex gap-2">
+                    <button id="cameraToggleBtn" onclick="toggleLiveCamera()" class="btn-tactile flex-1 min-h-[40px] py-1.5 px-2 rounded-xl bg-cyan-500/20 text-cyan-100 border border-cyan-400/35 font-semibold text-[11px]">
+                      📷 Live Camera
+                    </button>
+                    <button onclick="sendSampleDamagePhoto()" class="btn-tactile flex-1 min-h-[40px] py-1.5 px-2 rounded-xl bg-amber-500/20 text-amber-100 border border-amber-400/35 font-semibold text-[11px]">
+                      📸 Show 2 Torn Bags
+                    </button>
+                  </div>
+                  <div id="visionScannerFrame" class="hidden ar-scanner-wrap mt-2">
+                    <div class="ar-corner ar-tl"></div>
+                    <div class="ar-corner ar-tr"></div>
+                    <div class="ar-corner ar-bl"></div>
+                    <div class="ar-corner ar-br"></div>
+                    <div class="ar-scanline"></div>
+                    <video id="cameraPreview" autoplay playsinline muted class="hidden w-full h-24 object-cover"></video>
+                    <img id="proofThumbPreview" onclick="openProofLightbox(this.src)" alt="Visual proof" title="Click to zoom visual proof" class="hidden w-full h-24 object-cover cursor-zoom-in" />
+                    <span class="absolute bottom-1.5 right-2 z-10 mono text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/70 text-cyan-200 border border-cyan-400/35">AR VISION • ZOOM</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Live Field Triggers -->
+              <div class="subtile-4d rounded-2xl p-3">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-100">Live Field Triggers</span>
+                  <span class="text-[10px] text-cyan-300 font-semibold">Hinglish &bull; Tanglish &bull; Barge-In</span>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <button onclick="runGuidedStep(1)" class="btn-tactile text-left px-3 py-2 rounded-xl bg-white/5 hover:bg-emerald-500/15 border border-white/10 text-xs">
+                    <span class="font-bold text-emerald-300">1. Hinglish Delivery (Old Delhi):</span>
+                    <span class="text-slate-200 block text-[11px]">"Krishna Hardware pe 20 bags deliver, ₹15,000 cash mil gaya."</span>
+                  </button>
+                  <button onclick="runGuidedStep(2)" class="btn-tactile text-left px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-400/30 text-xs">
+                    <span class="font-bold text-amber-300">2. ⚡ Mid-Sentence Interrupt (Barge-In):</span>
+                    <span class="text-slate-100 block text-[11px]">"Ruko ruko! 18 bags intact, 2 damaged, uncle ₹500 discount maang rahe!"</span>
+                  </button>
+                  <div class="grid grid-cols-2 gap-1.5">
+                    <button onclick="runGuidedStep(4)" class="btn-tactile text-left px-2.5 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/30 text-[11px]">
+                      <span class="font-bold text-cyan-300">3. Tanglish (Chennai):</span>
+                      <span class="text-slate-200 block text-[10px] truncate">"Murugan Builders 25 bags..."</span>
+                    </button>
+                    <button onclick="runGuidedStep(3)" class="btn-tactile text-left px-2.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-[11px]">
+                      <span class="font-bold text-rose-300">4. Live Escalation:</span>
+                      <span class="text-slate-200 block text-[10px] truncate">"Priya ma'am se baat..."</span>
+                    </button>
+                  </div>
+                </div>
+
+                <form onsubmit="sendCustomTextTurn(event)" class="mt-2.5 flex gap-1.5">
+                  <input id="customTextInput" type="text" placeholder="Type Hinglish / Tanglish turn..." class="flex-1 glass-well rounded-xl px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-emerald-400" />
+                  <button type="submit" class="btn-tactile px-4 py-2 rounded-xl bg-gradient-to-b from-cyan-400 to-cyan-500 text-slate-950 font-extrabold text-xs">Send</button>
+                </form>
+              </div>
+
+              <!-- Latest Closed-Loop WhatsApp Receipt Card -->
+              <div id="receiptCardBox" class="hidden subtile-4d rounded-2xl border-emerald-400/45 bg-emerald-950/35 p-3">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-[11px] font-bold text-emerald-300">✅ Official WhatsApp Receipt Sent</span>
+                  <span id="receiptIdBadge" class="mono text-[10px] text-emerald-300 px-2 py-0.5 rounded bg-emerald-500/15"></span>
+                </div>
+                <pre id="receiptCardText" class="text-[11px] text-emerald-50 whitespace-pre-wrap font-sans leading-relaxed"></pre>
+              </div>
             </div>
-            <h2 id="callStatusTitle" class="text-sm font-bold text-white">Tap to Start Real-Time Voice Call</h2>
-            <p id="callStatusSub" class="text-[11px] text-slate-400 mt-0.5">Native Gemini Voice-to-Voice &bull; Speak Hinglish &bull; Interrupt Anytime</p>
 
-            <!-- Live Waveform Canvas -->
-            <canvas id="waveCanvas" width="320" height="54" class="w-full h-14 mt-3 rounded-lg bg-slate-950/60 border border-slate-800/80"></canvas>
+            <!-- TAB B: WHATSAPP BUSINESS CHAT & VOICE NOTES -->
+            <div id="driverWhatsAppPanel" class="hidden p-3.5 flex-1 flex flex-col gap-2.5">
+              <div class="wa-glass-screen rounded-2xl overflow-hidden flex-1 flex flex-col justify-between min-h-[540px]">
+                <div class="px-3 py-2.5 bg-emerald-950/55 border-b border-emerald-400/20 flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="relative w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-slate-950 font-black text-xs flex items-center justify-center shrink-0 border border-white/30">
+                      DX
+                      <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-950"></span>
+                    </div>
+                    <div class="min-w-0">
+                      <div class="text-xs font-extrabold text-white flex items-center gap-1 truncate">
+                        <span>DeliverEx Official Ops</span>
+                        <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-cyan-400 text-slate-950 text-[8px] font-black" title="Verified Business">✓</span>
+                      </div>
+                      <div id="waWorkflowStageBadge" class="text-[10px] text-emerald-300/85 truncate">Workflow: IDLE &bull; Cloud API</div>
+                    </div>
+                  </div>
+                  <button type="button" onclick="sendSampleWhatsAppNote()" class="btn-tactile px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-200 border border-emerald-400/35 font-bold text-[10px] whitespace-nowrap" title="Send sample Hinglish WhatsApp voice note">
+                    ⚡ Sample Note
+                  </button>
+                </div>
 
-            <!-- Primary Call Controls -->
-            <div class="flex items-center gap-1.5 mt-3 w-full">
-              <button id="callToggleBtn" onclick="toggleLiveCall()" class="flex-1 py-2.5 px-3 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition shadow-lg shadow-emerald-500/20">
-                📞 Start Live Call
-              </button>
-              <button id="endTurnBtn" onclick="forceEndTurn()" class="hidden py-2.5 px-2.5 rounded-xl font-bold text-xs bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-500/40 transition" title="Tap if noisy room prevents auto end-of-speech">
-                ✓ Reply Now
-              </button>
-              <button id="noiseToggleBtn" onclick="toggleMarketNoise()" class="py-2.5 px-2.5 rounded-xl font-semibold text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" title="Simulate noisy wholesale market traffic & chatter">
-                🔊 Noise: OFF
-              </button>
+                <div id="waChatFeed" class="p-3 space-y-2.5 overflow-y-auto flex-1 max-h-[380px]"></div>
+
+                <div class="p-2.5 bg-slate-950/65 border-t border-white/10 space-y-2">
+                  <div class="flex flex-wrap gap-1">
+                    <button type="button" onclick="sendWhatsAppQuickMessage('Krishna Hardware ka balance kitna hai?')" class="px-2 py-1 rounded-full bg-white/5 hover:bg-emerald-500/20 border border-white/10 text-[10px] font-semibold text-slate-200 transition">
+                      💰 Check Due
+                    </button>
+                    <button type="button" onclick="sendWhatsAppQuickMessage('Krishna Hardware pe 18 bags delivered, 2 damaged, 15000 cash, 500 discount')" class="px-2 py-1 rounded-full bg-white/5 hover:bg-amber-500/20 border border-white/10 text-[10px] font-semibold text-amber-200 transition">
+                      ⚠️ 18 Ok + 2 Dmg + ₹500
+                    </button>
+                    <button type="button" onclick="sendWhatsAppDamageProof()" class="px-2 py-1 rounded-full bg-white/5 hover:bg-cyan-500/20 border border-white/10 text-[10px] font-semibold text-cyan-200 transition">
+                      📸 Photo Proof
+                    </button>
+                    <button type="button" onclick="sendWhatsAppQuickMessage('Aaj ka route summary aur pending approvals dikhao')" class="px-2 py-1 rounded-full bg-white/5 hover:bg-indigo-500/20 border border-white/10 text-[10px] font-semibold text-indigo-200 transition">
+                      📊 Route Status
+                    </button>
+                  </div>
+
+                  <form onsubmit="sendWhatsAppTextChat(event)" class="flex items-center gap-1.5">
+                    <input id="waPhotoInput" type="file" accept="image/*" class="hidden" onchange="handleWaPhotoSelected(event)" />
+                    <button type="button" onclick="document.getElementById('waPhotoInput').click()" class="btn-tactile w-10 h-10 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 border border-white/15 flex items-center justify-center text-sm shrink-0" title="Attach photo proof">
+                      📷
+                    </button>
+                    <input id="waChatInput" type="text" placeholder="Message in Hinglish / Tanglish / English..." class="flex-1 min-w-0 glass-well rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-emerald-400" />
+                    <button id="waRecordBtn" type="button" onclick="toggleWhatsAppRecord()" class="btn-tactile w-10 h-10 rounded-xl bg-white/10 hover:bg-emerald-500/25 text-emerald-200 border border-emerald-400/35 flex items-center justify-center text-sm shrink-0" title="Record & send WhatsApp voice note">
+                      🎤
+                    </button>
+                    <button id="waSendBtn" type="submit" class="btn-tactile px-3.5 h-10 rounded-xl bg-gradient-to-b from-emerald-400 to-emerald-500 text-slate-950 font-black text-xs shrink-0">
+                      ➤
+                    </button>
+                  </form>
+
+                  <p class="text-[10px] text-slate-400 text-center">
+                    Live sync with Tally/SAP, Priya HITL &amp; <span class="mono text-cyan-300">/webhook/whatsapp</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- RIGHT BENTO STAGE (7 cols): CENTRAL AGENT BRAIN + HITL + ERP -->
+        <section class="xl:col-span-7 flex flex-col gap-4">
+
+          <!-- WIDE HERO BENTO: CENTRAL AGENT LIVE SCREEN & SPATIAL MIND GRAPH -->
+          <div class="glass-4d glass-cyan rounded-3xl p-4">
+            <div class="flex items-center justify-between gap-2 mb-3 z-lift-1">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee] animate-pulse"></span>
+                <h2 class="text-xs font-extrabold uppercase tracking-wider text-white">Central Agent Live Screen &amp; Spatial Mind Graph</h2>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="sentimentBadge" class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/35 whitespace-nowrap">
+                  SENTIMENT: CALM
+                </span>
+                <span id="agentStageBadge" class="mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-400/40">
+                  STANDBY
+                </span>
+              </div>
             </div>
 
-            <!-- TRUE MULTIMODAL VISION PROOF-OF-DELIVERY (See + Hear + Speak) -->
-            <div class="w-full mt-2.5 pt-2.5 border-t border-slate-800/80">
-              <div class="flex items-center justify-between text-[10px] text-cyan-300 font-bold uppercase tracking-wider mb-1.5">
-                <span>👁️ Multimodal Vision Proof</span>
-                <span id="visionStatusBadge" class="text-slate-400 font-normal">Ready</span>
+            <!-- 2026 Spatial Curved-Bezier Mind Graph -->
+            <div id="spatialMindGraph" class="glass-well rounded-2xl p-2.5 mb-3 z-lift-1">
+              <svg viewBox="0 0 560 86" class="w-full h-[84px] overflow-visible">
+                <defs>
+                  <linearGradient id="mindGradFwd" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#38bdf8" />
+                    <stop offset="50%" stop-color="#fbbf24" />
+                    <stop offset="100%" stop-color="#34d399" />
+                  </linearGradient>
+                  <linearGradient id="mindGradRet" x1="100%" y1="0%" x2="0%" y2="0%">
+                    <stop offset="0%" stop-color="#34d399" />
+                    <stop offset="100%" stop-color="#38bdf8" />
+                  </linearGradient>
+                </defs>
+                <path id="mindWire1" d="M 88 26 C 118 8, 146 8, 176 26" stroke="url(#mindGradFwd)" class="bezier-wire" />
+                <path id="mindWire2" d="M 244 26 C 274 8, 302 8, 332 26" stroke="url(#mindGradFwd)" class="bezier-wire" />
+                <path id="mindWire3" d="M 400 26 C 430 8, 458 8, 486 26" stroke="url(#mindGradFwd)" class="bezier-wire" />
+                <path id="mindWireReturn" d="M 505 46 C 365 86, 195 86, 55 46" stroke="url(#mindGradRet)" class="bezier-wire-return" />
+                <text x="280" y="79" text-anchor="middle" fill="#6ee7b7" font-size="9" font-weight="700" font-family="JetBrains Mono, monospace">↺ VOICE REPLY / ASK AGAIN LOOP</text>
+
+                <g transform="translate(18,8)">
+                  <rect id="mindNode1" width="76" height="36" rx="10" fill="rgba(15,23,42,0.88)" stroke="#38bdf8" stroke-width="1.2" />
+                  <text x="38" y="21" text-anchor="middle" fill="#fff" font-size="11">🎙️</text>
+                  <text x="38" y="32" text-anchor="middle" fill="#cbd5e1" font-size="8" font-weight="700">CATCH</text>
+                </g>
+                <g transform="translate(172,8)">
+                  <rect id="mindNode2" width="76" height="36" rx="10" fill="rgba(15,23,42,0.88)" stroke="#fbbf24" stroke-width="1.2" />
+                  <text x="38" y="21" text-anchor="middle" fill="#fff" font-size="11">🧠</text>
+                  <text x="38" y="32" text-anchor="middle" fill="#fde68a" font-size="8" font-weight="700">REASON</text>
+                </g>
+                <g transform="translate(328,8)">
+                  <rect id="mindNode3" width="76" height="36" rx="10" fill="rgba(15,23,42,0.88)" stroke="#a78bfa" stroke-width="1.2" />
+                  <text x="38" y="21" text-anchor="middle" fill="#fff" font-size="11">⚙️</text>
+                  <text x="38" y="32" text-anchor="middle" fill="#ddd6fe" font-size="8" font-weight="700">ERP+CAM</text>
+                </g>
+                <g transform="translate(480,8)">
+                  <rect id="mindNode4" width="72" height="36" rx="10" fill="rgba(15,23,42,0.88)" stroke="#34d399" stroke-width="1.2" />
+                  <text x="36" y="21" text-anchor="middle" fill="#fff" font-size="11">💬</text>
+                  <text x="36" y="32" text-anchor="middle" fill="#6ee7b7" font-size="8" font-weight="700">ASK BACK</text>
+                </g>
+              </svg>
+            </div>
+
+            <!-- 5-Stage Neural Execution Pipeline -->
+            <div class="grid grid-cols-5 gap-1.5 mb-3 z-lift-1">
+              <div id="pipeStage1" class="subtile-4d rounded-xl py-1.5 px-1 text-center border-white/10">
+                <div class="text-xs">🎙️</div>
+                <div class="text-[9px] font-bold text-slate-200 mt-0.5">Listen</div>
               </div>
-              <div class="flex items-center gap-1.5 mb-1.5">
-                <span class="text-[10px] text-slate-400 whitespace-nowrap">Active Store:</span>
-                <select id="activeStoreSelect" class="flex-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] font-semibold text-cyan-200 focus:outline-none focus:border-cyan-400">
-                  <option value="Krishna Hardware">Krishna Hardware (INV-8841 • Old Delhi)</option>
-                  <option value="Shri Ganesh Stores">Shri Ganesh Stores (INV-8845 • Chandni Chowk)</option>
-                  <option value="Bharat Traders">Bharat Traders (INV-8850 • Sadar Bazar)</option>
-                  <option value="Murugan Builders">Murugan Builders (INV-8862 • T. Nagar Chennai)</option>
-                </select>
+              <div id="pipeStage2" class="subtile-4d rounded-xl py-1.5 px-1 text-center border-white/10">
+                <div class="text-xs">🧠</div>
+                <div class="text-[9px] font-bold text-slate-200 mt-0.5">Intent</div>
               </div>
-              <div class="flex gap-1.5">
-                <button id="cameraToggleBtn" onclick="toggleLiveCamera()" class="flex-1 py-1.5 px-2 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/35 font-semibold text-[11px] transition">
-                  📷 Live Camera
-                </button>
-                <button onclick="sendSampleDamagePhoto()" class="flex-1 py-1.5 px-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/35 font-semibold text-[11px] transition">
-                  📸 Show 2 Torn Bags
-                </button>
+              <div id="pipeStage3" class="subtile-4d rounded-xl py-1.5 px-1 text-center border-white/10">
+                <div class="text-xs">📜</div>
+                <div class="text-[9px] font-bold text-slate-200 mt-0.5">SOP</div>
               </div>
-              <video id="cameraPreview" autoplay playsinline muted class="hidden w-full h-24 object-cover rounded-lg mt-2 border border-cyan-500/40"></video>
-              <img id="proofThumbPreview" alt="Visual proof" class="hidden w-full h-24 object-cover rounded-lg mt-2 border border-amber-500/40" />
+              <div id="pipeStage4" class="subtile-4d rounded-xl py-1.5 px-1 text-center border-white/10">
+                <div class="text-xs">⚙️</div>
+                <div class="text-[9px] font-bold text-slate-200 mt-0.5">ERP/Cam</div>
+              </div>
+              <div id="pipeStage5" class="subtile-4d rounded-xl py-1.5 px-1 text-center border-white/10">
+                <div class="text-xs">✅</div>
+                <div class="text-[9px] font-bold text-slate-200 mt-0.5">Settle</div>
+              </div>
+            </div>
+
+            <!-- Internal 2-Col Bento: Active Task + Dialogue | Coach HUD + Tool Execution -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <div class="space-y-2.5">
+                <div class="glass-well rounded-2xl p-3">
+                  <div class="text-[10px] uppercase tracking-wider text-cyan-300 font-bold">Agent Active Task</div>
+                  <div id="agentCurrentTask" class="text-xs font-bold text-white mt-0.5">
+                    Waiting for driver speech, camera frame, or trigger...
+                  </div>
+                  <div id="agentActionFeed" class="mt-2 space-y-1.5 max-h-[82px] overflow-y-auto pr-1 text-[11px]">
+                    <div class="flex items-center gap-2 text-slate-300">
+                      <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                      <span>Gemini Live Brain armed — ready for real-time Hinglish, Tanglish &amp; Vision.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="glass-well rounded-2xl p-3 flex flex-col h-[195px]">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-200">Live Voice Transcript</span>
+                    <span id="speakingIndicator" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/10 text-slate-200 border border-white/10">Idle</span>
+                  </div>
+                  <div id="transcriptFeed" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
+                    <div class="text-slate-300/80 text-center mt-8 text-xs">
+                      Start a Live Call, click <strong class="text-white">Step 1</strong>, or hit <strong class="text-cyan-300">▶ Auto-Run Agent</strong>.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-2.5">
+                <div class="grid grid-cols-2 gap-2 text-[11px]">
+                  <div class="glass-well rounded-xl px-2.5 py-2">
+                    <span class="text-[9px] uppercase text-slate-400 block font-semibold">Live Intent</span>
+                    <span id="hudIntent" class="mono font-bold text-white text-[11px]">AWAITING_SPEECH</span>
+                  </div>
+                  <div class="glass-well rounded-xl px-2.5 py-2">
+                    <span class="text-[9px] uppercase text-slate-400 block font-semibold">Code-Switch</span>
+                    <span id="hudLanguage" class="font-bold text-cyan-300 text-[11px]">Hinglish (HI+EN)</span>
+                  </div>
+                </div>
+
+                <div class="subtile-4d rounded-xl p-2.5 border-emerald-400/30 bg-emerald-950/25">
+                  <div class="text-[10px] font-extrabold uppercase text-emerald-300">💡 Live Frontline Coach (Raju)</div>
+                  <div id="hudCoachTip" class="text-[11px] text-slate-100 mt-0.5">Ready — speak naturally in Hinglish or Tanglish. Show damaged bags via camera for instant verification.</div>
+                  <div id="hudSuggestedPhrase" class="hidden text-[11px] text-emerald-200 italic mt-1 pt-1 border-t border-emerald-400/20"></div>
+                </div>
+
+                <div class="glass-well rounded-2xl p-2.5">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300">Live Tool Calls</span>
+                    <span class="text-[9px] text-slate-400">Function Calling</span>
+                  </div>
+                  <div id="toolLog" class="space-y-1.5 text-[11px] mono max-h-[115px] overflow-y-auto pr-1">
+                    <div class="text-slate-400 font-sans text-xs p-1">Waiting for spoken intent to trigger ERP actions...</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <!-- Instant Demo & Barge-In Quick Triggers (Great for Hackathon Stage Reliability!) -->
-          <div class="bg-slate-900/70 rounded-xl border border-slate-800 p-3">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Live Script / Stage Controls</span>
-              <span class="text-[10px] text-slate-400">Hinglish &bull; Tanglish &bull; Barge-In</span>
+          <!-- MIDDLE 2-COL BENTO: MANAGER PRIYA HITL + LIVE TALLY/SAP LEDGER -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Priya HITL -->
+            <div class="glass-4d glass-amber rounded-2xl p-4">
+              <div class="flex items-center justify-between mb-2.5">
+                <div>
+                  <h3 class="text-xs font-extrabold uppercase tracking-wider text-amber-300">👩‍💼 Priya Sharma &bull; Manager HITL</h3>
+                  <p class="text-[11px] text-slate-300">1-Tap Approval &amp; Live Call Takeover</p>
+                </div>
+                <span id="pendingApprovalCount" class="mono text-xs font-bold px-2.5 py-0.5 rounded-full bg-white/10 text-slate-200 border border-white/15">0 Pending</span>
+              </div>
+              <div id="approvalQueue" class="space-y-2.5 max-h-[245px] overflow-y-auto pr-1"></div>
             </div>
-            <div class="flex flex-col gap-1.5">
-              <button onclick="runGuidedStep(1)" class="text-left px-2.5 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 text-xs transition">
-                <span class="font-bold text-emerald-400">1. Hinglish Update (Old Delhi):</span>
-                <span class="text-slate-300 block text-[11px]">"Krishna Hardware pe 20 bags deliver, ₹15,000 cash mil gaya."</span>
-              </button>
-              <button onclick="runGuidedStep(2)" class="text-left px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs transition">
-                <span class="font-bold text-amber-300">2. ⚡ Mid-Sentence Interrupt (Barge-In):</span>
-                <span class="text-slate-200 block text-[11px]">"Ruko ruko! 18 bags intact, 2 damaged, uncle ₹500 discount maang rahe!"</span>
-              </button>
-              <div class="grid grid-cols-2 gap-1.5">
-                <button onclick="runGuidedStep(4)" class="text-left px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-[11px] transition">
-                  <span class="font-bold text-cyan-300">3. Tanglish (Chennai):</span>
-                  <span class="text-slate-300 block text-[10px] truncate">"Murugan Builders 25 bags..."</span>
-                </button>
-                <button onclick="runGuidedStep(3)" class="text-left px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-[11px] transition">
-                  <span class="font-bold text-rose-300">4. Live Escalation:</span>
-                  <span class="text-slate-300 block text-[10px] truncate">"Priya ma'am se baat..."</span>
-                </button>
+
+            <!-- Live Tally / SAP Ledger -->
+            <div class="glass-4d rounded-2xl p-4">
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <h3 class="text-xs font-extrabold uppercase tracking-wider text-white">Live Tally / SAP Ledger</h3>
+                <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/35 font-semibold">Auto-Synced</span>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-1.5 mb-2.5">
+                <input id="ledgerSearchInput" type="text" oninput="applyLedgerFilters()" placeholder="Filter shop or invoice..." class="flex-1 min-w-[120px] glass-well rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400" />
+                <div class="glass-well flex p-0.5 rounded-lg text-[10px]">
+                  <button onclick="setLedgerFilter('ALL')" id="filterLedgerALL" class="px-2 py-0.5 rounded font-bold bg-emerald-500/25 text-emerald-200">All</button>
+                  <button onclick="setLedgerFilter('SETTLED')" id="filterLedgerSETTLED" class="px-2 py-0.5 rounded font-semibold text-slate-300 hover:text-white">Settled</button>
+                  <button onclick="setLedgerFilter('PENDING')" id="filterLedgerPENDING" class="px-2 py-0.5 rounded font-semibold text-slate-300 hover:text-white">Pending</button>
+                </div>
+              </div>
+
+              <div class="glass-well rounded-xl p-2 overflow-x-auto max-h-[200px] overflow-y-auto">
+                <table class="w-full text-left text-[11px]">
+                  <thead class="text-[10px] uppercase text-slate-400 border-b border-white/10">
+                    <tr>
+                      <th class="py-1.5 pr-2">Ref / Shop</th>
+                      <th class="py-1.5 pr-2">Bags</th>
+                      <th class="py-1.5 pr-2">Cash / Disc</th>
+                      <th class="py-1.5">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ledgerTableBody" class="divide-y divide-white/5"></tbody>
+                </table>
               </div>
             </div>
-
-            <!-- Custom Hinglish Text Turn Fallback -->
-            <form onsubmit="sendCustomTextTurn(event)" class="mt-2.5 flex gap-1.5">
-              <input id="customTextInput" type="text" placeholder="Type Hinglish / Tanglish turn..." class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
-              <button type="submit" class="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs">Send</button>
-            </form>
           </div>
 
-          <!-- Latest Closed-Loop WhatsApp Receipt Card -->
-          <div id="receiptCardBox" class="hidden rounded-xl border border-emerald-500/40 bg-emerald-950/30 p-3">
-            <div class="flex items-center justify-between mb-1">
-              <span class="text-[11px] font-bold text-emerald-300">✅ Official WhatsApp Receipt Sent to Raju</span>
-              <span id="receiptIdBadge" class="mono text-[10px] text-emerald-400"></span>
+          <!-- BOTTOM 2-COL BENTO: GROUNDED SOPs + WAREHOUSE STOCK & INVOICES -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="glass-4d rounded-2xl p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xs font-extrabold uppercase tracking-wider text-cyan-300">Grounded Organizational SOPs</h3>
+                <span class="text-[10px] text-slate-400">Policy Store</span>
+              </div>
+              <div id="policyList" class="space-y-2 max-h-[190px] overflow-y-auto pr-1"></div>
             </div>
-            <pre id="receiptCardText" class="text-[11px] text-emerald-100 whitespace-pre-wrap font-sans leading-relaxed"></pre>
+
+            <div class="glass-4d rounded-2xl p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-100">Warehouse Stock &amp; Open Invoices</h3>
+                <span class="text-[10px] text-cyan-300">Click shop to target</span>
+              </div>
+              <div class="grid grid-cols-1 gap-2 max-h-[190px] overflow-y-auto pr-1" id="inventoryAndCustomers"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- LIVE HYBRID ANALYTICS: GPS ROUTE MAP + PIE CHART + CASH BAR GRAPH + AGENT THROUGHPUT GRAPH -->
+      <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div id="liveRouteMapTile" class="glass-4d rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-black uppercase tracking-wider text-amber-300">Live GPS Route Radar</h3>
+            <span id="mapActiveRouteLabel" class="mono text-[10px] text-cyan-200">Route-4 • Old Delhi</span>
+          </div>
+          <div class="glass-well rounded-xl p-2 relative overflow-hidden">
+            <svg viewBox="0 0 320 145" class="w-full h-[145px]">
+              <circle cx="160" cy="72" r="28" fill="none" stroke="rgba(255,255,255,0.06)" stroke-dasharray="3 3" />
+              <circle cx="160" cy="72" r="56" fill="none" stroke="rgba(255,255,255,0.05)" stroke-dasharray="3 3" />
+              <line x1="0" y1="72" x2="320" y2="72" stroke="rgba(255,255,255,0.04)" />
+              <line x1="160" y1="0" x2="160" y2="145" stroke="rgba(255,255,255,0.04)" />
+
+              <path d="M 48 42 Q 110 22, 162 46 T 270 36" fill="none" stroke="rgba(56,189,248,0.45)" stroke-width="2" class="wire-line" />
+              <path d="M 162 46 Q 210 92, 266 108" fill="none" stroke="rgba(251,191,36,0.45)" stroke-width="2" class="wire-line" />
+
+              <g id="mapPin-CUST-104" onclick="selectStoreFromDashboard('Krishna Hardware')" class="cursor-pointer" transform="translate(48,42)">
+                <circle r="11" fill="rgba(56,189,248,0.18)" stroke="#38bdf8" stroke-width="1.5" />
+                <circle r="4" fill="#38bdf8" />
+                <text x="0" y="20" text-anchor="middle" fill="#e2e8f0" font-size="8.5" font-weight="700">Krishna</text>
+              </g>
+              <g id="mapPin-CUST-108" onclick="selectStoreFromDashboard('Shri Ganesh Stores')" class="cursor-pointer" transform="translate(162,46)">
+                <circle r="11" fill="rgba(56,189,248,0.18)" stroke="#38bdf8" stroke-width="1.5" />
+                <circle r="4" fill="#38bdf8" />
+                <text x="0" y="20" text-anchor="middle" fill="#e2e8f0" font-size="8.5" font-weight="700">Ganesh</text>
+              </g>
+              <g id="mapPin-CUST-112" onclick="selectStoreFromDashboard('Bharat Traders')" class="cursor-pointer" transform="translate(270,36)">
+                <circle r="11" fill="rgba(56,189,248,0.18)" stroke="#38bdf8" stroke-width="1.5" />
+                <circle r="4" fill="#38bdf8" />
+                <text x="0" y="20" text-anchor="middle" fill="#e2e8f0" font-size="8.5" font-weight="700">Bharat</text>
+              </g>
+              <g id="mapPin-CUST-119" onclick="selectStoreFromDashboard('Murugan Builders')" class="cursor-pointer" transform="translate(266,108)">
+                <circle r="11" fill="rgba(56,189,248,0.18)" stroke="#38bdf8" stroke-width="1.5" />
+                <circle r="4" fill="#38bdf8" />
+                <text x="0" y="20" text-anchor="middle" fill="#e2e8f0" font-size="8.5" font-weight="700">Murugan</text>
+              </g>
+
+              <g id="mapTruckMarker" class="gps-truck-marker" transform="translate(48,42)">
+                <circle r="15" fill="rgba(251,191,36,0.22)" stroke="#fbbf24" stroke-width="1.5" class="animate-pulse" />
+                <text x="0" y="4" text-anchor="middle" font-size="13">🚚</text>
+              </g>
+            </svg>
           </div>
         </div>
 
-        <!-- TAB B: WHATSAPP VOICE NOTE (YOGESH'S ASYNC FLOW) -->
-        <div id="driverWhatsAppPanel" class="hidden p-4 flex-1 flex flex-col gap-3">
-          <div class="wa-bg rounded-xl border border-slate-800 p-3 flex-1 flex flex-col justify-between min-h-[340px]">
-            <div id="waChatFeed" class="space-y-2.5 overflow-y-auto max-h-[320px] pr-1">
-              <div class="bg-slate-800/90 text-slate-200 text-xs p-2.5 rounded-xl rounded-tl-none max-w-[90%] border border-slate-700/70">
-                <div class="text-[10px] font-bold text-emerald-400 mb-0.5">DeliverEx Official Ops (+91-80-DELIVEREX)</div>
-                Namaste Raju! Delivery complete hone par apna 10-second voice note bhej do — Tally/SAP &amp; Priya Ma'am ko auto-update ho jayega.
+        <div class="glass-4d rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-black uppercase tracking-wider text-cyan-300">Route &amp; Settlement Pie Chart</h3>
+            <span class="text-[10px] text-slate-400">Hover slices</span>
+          </div>
+          <div class="flex items-center gap-4">
+            <canvas id="opsPieChart" width="145" height="145" class="shrink-0 cursor-pointer"></canvas>
+            <div id="opsPieLegend" class="flex-1 space-y-1.5 text-[11px]"></div>
+          </div>
+        </div>
+
+        <div class="glass-4d rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-black uppercase tracking-wider text-emerald-300">Cash Collected vs Target</h3>
+            <span class="text-[10px] text-slate-400">Hover bars (₹)</span>
+          </div>
+          <div class="glass-well rounded-xl p-2">
+            <canvas id="opsCashChart" width="380" height="145" class="w-full h-[145px] cursor-pointer"></canvas>
+          </div>
+        </div>
+
+        <div class="glass-4d rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-black uppercase tracking-wider text-indigo-300">Agent Latency &amp; Tool Flow</h3>
+            <span class="text-[10px] text-slate-400">TTFA ms &amp; Ops</span>
+          </div>
+          <div class="glass-well rounded-xl p-2">
+            <canvas id="opsAgentGraph" width="380" height="145" class="w-full h-[145px]"></canvas>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- MAIN VIEW 2: FULL TOTAL ROLE STATUS DASHBOARD -->
+    <section id="rolesView" class="hidden flex-1 max-w-[1600px] w-full mx-auto p-3 sm:p-5 flex flex-col gap-4">
+      <div class="glass-4d glass-cyan rounded-3xl p-5 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <h2 class="text-base font-black text-white">Total Role Status &amp; Operations Command Dashboard</h2>
+          </div>
+          <p class="text-xs text-slate-300 mt-1">Real-time operational status, workload, and completion across Field Drivers, Gemini AI Agent, Manager HITL, and Tally/SAP ERP</p>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="subtile-4d px-3.5 py-2 rounded-xl">
+            <div class="text-[10px] uppercase text-slate-400 font-bold">Mission Progress</div>
+            <div id="rolesBoardCompletionPct" class="mono text-lg font-black text-emerald-300">0% Settled</div>
+          </div>
+          <button onclick="switchMainView('ops')" class="btn-tactile px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-b from-emerald-400 to-emerald-500 text-slate-950">
+            &larr; Back to Live Ops Bento
+          </button>
+        </div>
+      </div>
+
+      <!-- 4 CONNECTED WIRED 4D ROLE CARDS -->
+      <div class="glass-4d rounded-3xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-black uppercase tracking-wider text-cyan-300">Connected Multi-Agent Collaboration Flow</span>
+          <span class="text-[11px] text-slate-300">Live wired handoffs across Driver &rarr; Gemini AI &rarr; Manager HITL &rarr; Tally/SAP</span>
+        </div>
+        <div class="flex flex-col xl:flex-row items-stretch gap-3 xl:gap-0">
+          <div id="boardFlowNode1" class="subtile-4d flex-1 glass-emerald rounded-2xl p-4 flex flex-col justify-between gap-3">
+            <div>
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-black uppercase tracking-wider text-emerald-300">🚚 Field Driver</span>
+                <span id="roleCardDriverBadge" class="mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-500/20 text-slate-200 border border-white/15">STANDBY</span>
+              </div>
+              <div class="text-sm font-bold text-white mt-1.5">Raju Kumar &amp; Karthik</div>
+              <div id="roleCardDriverTarget" class="text-[11px] text-slate-300">Target Store: Krishna Hardware</div>
+
+              <div class="grid grid-cols-2 gap-2 mt-3">
+                <div class="glass-well rounded-xl p-2">
+                  <div class="text-[9px] uppercase text-slate-400 font-bold">Bags Logged</div>
+                  <div id="roleCardDriverBags" class="mono text-xs font-black text-white mt-0.5">0 ok / 0 dmg</div>
+                </div>
+                <div class="glass-well rounded-xl p-2">
+                  <div class="text-[9px] uppercase text-slate-400 font-bold">Cash Handed</div>
+                  <div id="roleCardDriverCash" class="mono text-xs font-black text-emerald-300 mt-0.5">₹0</div>
+                </div>
               </div>
             </div>
+            <div class="flex items-center justify-between pt-2 border-t border-white/10 text-[11px]">
+              <span id="roleCardDriverBarge" class="text-slate-300">Barge-Ins: 0</span>
+              <button onclick="switchMainView('ops')" class="btn-tactile px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-200 border border-emerald-400/35 font-bold text-[10px]">Handset</button>
+            </div>
+          </div>
 
-            <div class="mt-3 pt-2.5 border-t border-slate-800 space-y-2">
-              <div class="flex gap-2">
-                <button id="waRecordBtn" onclick="toggleWhatsAppRecord()" class="flex-1 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition">
-                  🎤 Record Voice Note
-                </button>
-                <button onclick="sendSampleWhatsAppNote()" class="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 font-semibold text-xs transition">
-                  ⚡ Send Sample Hinglish Note
-                </button>
+          <div class="hidden xl:flex flex-col items-center justify-center w-16 shrink-0 px-1" aria-hidden="true">
+            <span class="mono text-[9px] text-cyan-300 mb-1">Audio/Cam</span>
+            <svg width="56" height="24" viewBox="0 0 56 24" class="overflow-visible">
+              <line id="boardWire1" x1="0" y1="12" x2="48" y2="12" stroke="#22d3ee" stroke-width="2.5" class="wire-line" />
+              <polygon points="46,7 56,12 46,17" fill="#22d3ee" />
+            </svg>
+          </div>
+
+          <div id="boardFlowNode2" class="subtile-4d flex-1 glass-cyan rounded-2xl p-4 flex flex-col justify-between gap-3">
+            <div>
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-black uppercase tracking-wider text-cyan-300">🤖 Gemini AI Agent</span>
+                <span id="roleCardAgentBadge" class="mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-400/35">STANDBY</span>
               </div>
-              <p class="text-[10px] text-slate-400 text-center">
-                Also wired to real Meta Cloud API webhook at <span class="mono text-cyan-300">POST /webhook/whatsapp</span>
-              </p>
+              <div class="text-sm font-bold text-white mt-1.5">Voice + Vision + SOP Brain</div>
+              <div id="roleCardAgentTask" class="text-[11px] text-slate-300 line-clamp-2">Waiting for driver input or trigger...</div>
+
+              <div class="grid grid-cols-2 gap-2 mt-3">
+                <div class="glass-well rounded-xl p-2">
+                  <div class="text-[9px] uppercase text-slate-400 font-bold">Tool Executions</div>
+                  <div id="roleCardAgentTools" class="mono text-xs font-black text-white mt-0.5">0 calls</div>
+                </div>
+                <div class="glass-well rounded-xl p-2">
+                  <div class="text-[9px] uppercase text-slate-400 font-bold">SOPs Grounded</div>
+                  <div id="roleCardAgentSops" class="mono text-xs font-black text-cyan-300 mt-0.5">0 / 4</div>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center justify-between pt-2 border-t border-white/10 text-[11px]">
+              <span id="roleCardAgentLang" class="text-slate-300">Lang: Hinglish</span>
+              <button onclick="switchMainView('ops'); runAutopilotShowcase();" class="btn-tactile px-2 py-1 rounded-lg bg-cyan-500/20 text-cyan-200 border border-cyan-400/35 font-bold text-[10px]">▶ Auto</button>
+            </div>
+          </div>
+
+          <div class="hidden xl:flex flex-col items-center justify-center w-16 shrink-0 px-1" aria-hidden="true">
+            <span class="mono text-[9px] text-amber-300 mb-1">SOP+HITL</span>
+            <svg width="56" height="24" viewBox="0 0 56 24" class="overflow-visible">
+              <line id="boardWire2" x1="0" y1="12" x2="48" y2="12" stroke="#fbbf24" stroke-width="2.5" class="wire-line" />
+              <polygon points="46,7 56,12 46,17" fill="#fbbf24" />
+            </svg>
+          </div>
+
+          <div id="boardFlowNode3" class="subtile-4d flex-1 glass-amber rounded-2xl p-4 flex flex-col justify-between gap-3">
+            <div>
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-black uppercase tracking-wider text-amber-300">👩‍💼 Manager HITL</span>
+                <span id="roleCardManagerBadge" class="mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/35">ALL CLEAR</span>
+              </div>
+              <div class="text-sm font-bold text-white mt-1.5">Priya Sharma • Area Mgr</div>
+              <div class="text-[11px] text-slate-300">Discounts &gt;₹200 &amp; Damage</div>
+
+              <div class="grid grid-cols-2 gap-2 mt-3">
+                <div class="glass-well rounded-xl p-2">
+                  <div class="text-[9px] uppercase text-slate-400 font-bold">Pend / Appr</div>
+                  <div id="roleCardManagerCounts" class="mono text-xs font-black text-amber-300 mt-0.5">0 / 0</div>
+                </div>
+                <div class="glass-well rounded-xl p-2">
+                  <div class="text-[9px] uppercase text-slate-400 font-bold">Rej / Hand</div>
+                  <div id="roleCardManagerOther" class="mono text-xs font-black text-white mt-0.5">0 / 0</div>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center justify-between pt-2 border-t border-white/10 text-[11px]">
+              <span id="roleCardManagerProofs" class="text-slate-300">Proofs: 0</span>
+              <button onclick="switchMainView('ops')" class="btn-tactile px-2 py-1 rounded-lg bg-amber-500/20 text-amber-200 border border-amber-400/35 font-bold text-[10px]">Queue</button>
+            </div>
+          </div>
+
+          <div class="hidden xl:flex flex-col items-center justify-center w-16 shrink-0 px-1" aria-hidden="true">
+            <span class="mono text-[9px] text-emerald-300 mb-1">ERP+WA</span>
+            <svg width="56" height="24" viewBox="0 0 56 24" class="overflow-visible">
+              <line id="boardWire3" x1="0" y1="12" x2="48" y2="12" stroke="#34d399" stroke-width="2.5" class="wire-line" />
+              <polygon points="46,7 56,12 46,17" fill="#34d399" />
+            </svg>
+          </div>
+
+          <div id="boardFlowNode4" class="subtile-4d flex-1 rounded-2xl p-4 flex flex-col justify-between gap-3">
+            <div>
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-black uppercase tracking-wider text-indigo-300">🧾 Tally &amp; WA Ops</span>
+                <span id="roleCardErpBadge" class="mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/35">SYNCED</span>
+              </div>
+              <div class="text-sm font-bold text-white mt-1.5">Accounting + Receipts</div>
+              <div class="text-[11px] text-slate-300">Auto-settlement &amp; Receipts</div>
+
+              <div class="grid grid-cols-2 gap-2 mt-3">
+                <div class="glass-well rounded-xl p-2">
+                  <div class="text-[9px] uppercase text-slate-400 font-bold">Settled</div>
+                  <div id="roleCardErpSettled" class="mono text-xs font-black text-emerald-300 mt-0.5">0 / 4</div>
+                </div>
+                <div class="glass-well rounded-xl p-2">
+                  <div class="text-[9px] uppercase text-slate-400 font-bold">WA Receipts</div>
+                  <div id="roleCardErpReceipts" class="mono text-xs font-black text-white mt-0.5">0</div>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center justify-between pt-2 border-t border-white/10 text-[11px]">
+              <span id="roleCardErpDue" class="text-slate-300">Due: ₹0</span>
+              <button onclick="switchMainView('ops')" class="btn-tactile px-2 py-1 rounded-lg bg-indigo-500/20 text-indigo-200 border border-indigo-400/35 font-bold text-[10px]">Ledger</button>
             </div>
           </div>
         </div>
       </div>
-    </section>
 
-    <!-- CENTER PANEL (4 cols): LIVE AI OPS BRAIN, SENTIMENT/COACH HUD, TRANSCRIPT & TOOLS -->
-    <section class="lg:col-span-4 flex flex-col gap-3">
-      <!-- Real-Time Understanding HUD + Actionable Frontline Staff Coach -->
-      <div class="glass rounded-2xl p-3.5 border-cyan-500/25">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-xs font-extrabold uppercase tracking-wider text-cyan-300">Real-Time Understanding &amp; Frontline Coach</h3>
-          <span id="sentimentBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">SENTIMENT: CALM</span>
-        </div>
-        <div class="grid grid-cols-2 gap-2 text-[11px] mb-2">
-          <div class="bg-slate-900/80 border border-slate-800 rounded-lg px-2.5 py-1.5">
-            <span class="text-[9px] uppercase text-slate-400 block">Live Intent</span>
-            <span id="hudIntent" class="mono font-bold text-white">AWAITING_SPEECH</span>
+      <!-- HYBRID BOARD CHARTS -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="glass-4d rounded-3xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-black uppercase tracking-wider text-cyan-300">Invoice &amp; Bag Status Pie Chart</h3>
+            <span class="text-[10px] text-slate-400">Live Distribution</span>
           </div>
-          <div class="bg-slate-900/80 border border-slate-800 rounded-lg px-2.5 py-1.5">
-            <span class="text-[9px] uppercase text-slate-400 block">Code-Switch Detected</span>
-            <span id="hudLanguage" class="font-bold text-cyan-300">Hinglish (HI+EN)</span>
+          <div class="flex items-center gap-4">
+            <canvas id="boardPieChart" width="160" height="160" class="shrink-0 cursor-pointer"></canvas>
+            <div id="boardPieLegend" class="flex-1 space-y-1.5 text-xs"></div>
           </div>
         </div>
-        <div class="bg-emerald-950/35 border border-emerald-500/30 rounded-xl p-2.5">
-          <div class="text-[10px] font-extrabold uppercase text-emerald-300">💡 Live Guidance for Frontline Staff (Raju)</div>
-          <div id="hudCoachTip" class="text-[11px] text-slate-200 mt-0.5">Ready — speak naturally in Hinglish or Tanglish. Show damaged bags via camera for instant verification.</div>
-          <div id="hudSuggestedPhrase" class="hidden text-[11px] text-emerald-200 italic mt-1 pt-1 border-t border-emerald-500/20"></div>
-        </div>
-      </div>
 
-      <!-- Live Conversation & Barge-In Stream -->
-      <div class="glass rounded-2xl p-3.5 flex flex-col h-[240px]">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-200">Live Voice Transcript &amp; Turn-Taking</h3>
-          <span id="speakingIndicator" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Idle</span>
+        <div class="glass-4d rounded-3xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-black uppercase tracking-wider text-emerald-300">Cash Collected vs Target Graph</h3>
+            <span class="text-[10px] text-slate-400">By Store (₹)</span>
+          </div>
+          <div class="glass-well rounded-xl p-2.5">
+            <canvas id="boardCashChart" width="420" height="155" class="w-full h-[155px] cursor-pointer"></canvas>
+          </div>
         </div>
-        <div id="transcriptFeed" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
-          <div class="text-slate-500 text-center mt-14 text-xs">
-            Start a Live Call or click <strong class="text-slate-300">Step 1</strong> to see real-time Hinglish dialogue, barge-in detection, and tool execution.
+
+        <div class="glass-4d rounded-3xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-black uppercase tracking-wider text-indigo-300">Agent Latency &amp; Ops Graph</h3>
+            <span class="text-[10px] text-slate-400">TTFA ms Trend</span>
+          </div>
+          <div class="glass-well rounded-xl p-2.5">
+            <canvas id="boardAgentGraph" width="420" height="155" class="w-full h-[155px]"></canvas>
           </div>
         </div>
       </div>
 
-      <!-- Organizational Knowledge Grounding (Company SOPs) -->
-      <div class="glass rounded-2xl p-4">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-xs font-extrabold uppercase tracking-wider text-cyan-300">Grounded Organizational Knowledge (SOPs)</h3>
-          <span class="text-[10px] text-slate-400">DeliverEx Policy Store</span>
-        </div>
-        <div id="policyList" class="space-y-2 max-h-[160px] overflow-y-auto pr-1"></div>
-      </div>
-
-      <!-- Real-Time Backend Tool Calls -->
-      <div class="glass rounded-2xl p-4 flex-1 flex flex-col min-h-[170px]">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-xs font-extrabold uppercase tracking-wider text-emerald-300">Live Action Execution Path (Tool Calls)</h3>
-          <span class="text-[10px] text-slate-400">Gemini Function Calling</span>
-        </div>
-        <div id="toolLog" class="flex-1 overflow-y-auto space-y-1.5 pr-1 text-[11px] mono">
-          <div class="text-slate-500 font-sans text-xs">Waiting for spoken intent to trigger ERP actions...</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- RIGHT PANEL (4 cols): HUMAN OVERSIGHT (PRIYA) + LIVE TALLY/SAP ERP -->
-    <section class="lg:col-span-4 flex flex-col gap-3">
-      <!-- Priya's 1-Tap Manager Approval Queue (HITL) -->
-      <div class="glass rounded-2xl p-4 border-amber-500/25">
-        <div class="flex items-center justify-between mb-2.5">
+      <!-- STORE & ROUTE ROLE OWNERSHIP MATRIX -->
+      <div class="glass-4d rounded-3xl p-5">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div>
-            <h3 class="text-xs font-extrabold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-              <span>👩‍💼 Priya Sharma &bull; Manager Oversight (HITL)</span>
-            </h3>
-            <p class="text-[11px] text-slate-400">1-Tap WhatsApp Approval &amp; Live Call Handoff</p>
+            <h3 class="text-sm font-extrabold text-white">Store &amp; Route Role Ownership Status</h3>
+            <p class="text-xs text-slate-300">Live status of every customer invoice and which role currently owns the next action</p>
           </div>
-          <span id="pendingApprovalCount" class="mono text-xs font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">0 Pending</span>
+          <span class="text-[11px] text-cyan-300 font-semibold">Live SQLite ERP Sync</span>
         </div>
-        <div id="approvalQueue" class="space-y-2.5 max-h-[240px] overflow-y-auto pr-1"></div>
-      </div>
-
-      <!-- Live Tally / SAP Ledger -->
-      <div class="glass rounded-2xl p-4">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-xs font-extrabold uppercase tracking-wider text-white">Live Tally / SAP Accounting Ledger</h3>
-          <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-semibold">Auto-Synced</span>
-        </div>
-        <div class="overflow-x-auto max-h-[190px] overflow-y-auto">
-          <table class="w-full text-left text-[11px]">
-            <thead class="text-[10px] uppercase text-slate-400 border-b border-slate-800">
+        <div class="glass-well rounded-2xl p-3 overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="text-[10px] uppercase text-slate-400 border-b border-white/10">
               <tr>
-                <th class="py-1.5 pr-2">Ref / Shop</th>
-                <th class="py-1.5 pr-2">Bags</th>
-                <th class="py-1.5 pr-2">Cash / Disc</th>
-                <th class="py-1.5">Status</th>
+                <th class="py-2 pr-3">Customer / Invoice</th>
+                <th class="py-2 pr-3">Route &amp; Location</th>
+                <th class="py-2 pr-3">Expected Bags</th>
+                <th class="py-2 pr-3">Invoice / Balance Due</th>
+                <th class="py-2 pr-3">Current Role Owner</th>
+                <th class="py-2">Status</th>
               </tr>
             </thead>
-            <tbody id="ledgerTableBody" class="divide-y divide-slate-800/70"></tbody>
+            <tbody id="roleStoreMatrixBody" class="divide-y divide-white/5"></tbody>
           </table>
         </div>
       </div>
+    </section>
 
-      <!-- Warehouse Inventory & Open Customer Invoices -->
-      <div class="glass rounded-2xl p-4 flex-1">
-        <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-200 mb-2">Warehouse Stock &amp; Open Invoices</h3>
-        <div class="grid grid-cols-1 gap-2" id="inventoryAndCustomers"></div>
+    <!-- MAIN VIEW 3: BONUS INSIGHTS, ROI & GO-LIVE DIAGNOSTICS -->
+    <section id="insightsView" class="hidden flex-1 max-w-[1600px] w-full mx-auto p-3 sm:p-5 grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div class="lg:col-span-6 glass-4d glass-cyan rounded-3xl p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <h2 class="text-base font-extrabold text-white">Auto-Captured Field Intelligence</h2>
+            <p class="text-xs text-slate-300">Recurring operational issues extracted automatically from noisy voice calls</p>
+          </div>
+          <span class="text-xs px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 font-bold">Live Pattern Engine</span>
+        </div>
+        <div id="insightsList" class="space-y-3 overflow-y-auto max-h-[560px] pr-1"></div>
+      </div>
+
+      <div class="lg:col-span-6 glass-4d glass-emerald rounded-3xl p-5 flex flex-col gap-4">
+        <div>
+          <h2 class="text-base font-extrabold text-white">Commercial Viability &amp; Unit Economics at Scale</h2>
+          <p class="text-xs text-slate-300">Adjust monthly field delivery volume to model MSME distributor savings</p>
+        </div>
+
+        <div class="glass-well rounded-2xl p-4">
+          <div class="flex justify-between items-center mb-3">
+            <label for="volumeSlider" class="text-xs font-bold text-slate-200">Monthly Deliveries / Field Calls</label>
+            <span id="volumeLabel" class="mono text-sm font-extrabold text-emerald-300 px-2.5 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-400/30">10,000 / month</span>
+          </div>
+          <input id="volumeSlider" type="range" min="1000" max="50000" step="1000" value="10000" oninput="updateRoiCalculator()" class="w-full glass-slider" />
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="subtile-4d rounded-2xl p-4">
+            <div class="text-[11px] text-slate-300">Manual Back-Office Cost (₹30/call)</div>
+            <div id="roiManualCost" class="mono text-2xl font-black text-rose-400 mt-1">₹3,00,000</div>
+            <div class="text-[11px] text-slate-400 mt-1">Paper slips + call-center reconciliation</div>
+          </div>
+          <div class="subtile-4d rounded-2xl p-4 border-emerald-400/35">
+            <div class="text-[11px] text-emerald-300">DeliverEx Live Cost (₹2.20/call)</div>
+            <div id="roiAiCost" class="mono text-2xl font-black text-emerald-400 mt-1">₹22,000</div>
+            <div class="text-[11px] text-slate-400 mt-1">Gemini Live API + Cloud Run + WhatsApp</div>
+          </div>
+          <div class="subtile-4d rounded-2xl p-4 border-emerald-400/50 bg-emerald-950/35">
+            <div class="text-[11px] text-emerald-200">Net Monthly Savings</div>
+            <div id="roiSavings" class="mono text-3xl font-black text-white mt-1">₹2,78,000</div>
+            <div id="roiMultiple" class="text-xs font-bold text-emerald-300 mt-1">13.6x ROI &bull; 92% Cost Reduction</div>
+          </div>
+          <div class="subtile-4d rounded-2xl p-4 border-cyan-400/35">
+            <div class="text-[11px] text-cyan-300 font-bold">Operational Impact</div>
+            <div class="text-sm font-bold text-white mt-1">Reconciliation: 24 hrs &rarr; 18 sec</div>
+            <div class="text-xs text-slate-200 mt-1">First-Contact Resolution: 55% &rarr; 92%</div>
+            <div class="text-xs text-slate-400 mt-0.5">Languages: Hindi, Hinglish, Tamil, Marathi, Telugu</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Go-Live Production Compatibility Diagnostics -->
+      <div class="lg:col-span-12 glass-4d glass-amber rounded-3xl p-5 flex flex-col gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="text-base font-extrabold text-white">Go-Live Production Compatibility Check</h2>
+            <p id="goLiveSummaryText" class="text-xs text-slate-300">Checking AI Auth, Models, WhatsApp Cloud API, SQLite Persistence, Security &amp; Cloud Run readiness...</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="goLiveScoreBadge" class="mono text-xs font-bold px-3 py-1 rounded-full bg-white/10 text-slate-200 border border-white/15">Checking...</span>
+            <button onclick="refreshGoLiveCheck()" class="btn-tactile px-3 py-1.5 rounded-xl text-xs font-bold bg-white/10 text-white border border-white/15">↻ Re-check</button>
+          </div>
+        </div>
+        <div id="goLiveChecksList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3"></div>
       </div>
     </section>
-  </main>
+  </div>
 
-  <!-- MAIN VIEW 2: BONUS INSIGHTS & COMMERCIAL ROI DASHBOARD -->
-  <section id="insightsView" class="hidden flex-1 max-w-[1680px] w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
-    <!-- Field Intelligence Insights -->
-    <div class="lg:col-span-6 glass rounded-2xl p-5 flex flex-col gap-3">
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-base font-extrabold text-white">Auto-Captured Field Intelligence (Bonus Extension)</h2>
-          <p class="text-xs text-slate-400">Recurring operational issues extracted automatically from noisy voice calls</p>
-        </div>
-        <span class="text-xs px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-semibold">Live Pattern Engine</span>
+  <!-- FLOATING CHART TOOLTIP, TOASTS & AR VISION LIGHTBOX -->
+  <div id="chartTooltip" class="hidden chart-tooltip-glass"></div>
+  <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-xs pointer-events-none"></div>
+  <div id="visionLightbox" onclick="closeProofLightbox()" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div onclick="event.stopPropagation()" class="glass-4d rounded-3xl p-4 max-w-xl w-full">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-black uppercase tracking-wider text-cyan-300">👁️ Gemini Vision Proof Inspector</span>
+        <button onclick="closeProofLightbox()" class="btn-tactile px-2.5 py-1 rounded-lg text-xs font-bold bg-white/10 text-white">✕ Close</button>
       </div>
-      <div id="insightsList" class="space-y-3 overflow-y-auto max-h-[540px] pr-1"></div>
-    </div>
-
-    <!-- Unit Economics & Commercial ROI Calculator -->
-    <div class="lg:col-span-6 glass rounded-2xl p-5 flex flex-col gap-4">
-      <div>
-        <h2 class="text-base font-extrabold text-white">Commercial Viability &amp; Unit Economics at Scale</h2>
-        <p class="text-xs text-slate-400">Adjust monthly field delivery volume to model MSME distributor savings</p>
-      </div>
-
-      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
-        <div class="flex justify-between items-center mb-2">
-          <label for="volumeSlider" class="text-xs font-bold text-slate-300">Monthly Deliveries / Field Calls</label>
-          <span id="volumeLabel" class="mono text-sm font-extrabold text-emerald-400">10,000 / month</span>
-        </div>
-        <input id="volumeSlider" type="range" min="1000" max="50000" step="1000" value="10000" oninput="updateRoiCalculator()" class="w-full accent-emerald-400" />
-      </div>
-
-      <div class="grid grid-cols-2 gap-3">
-        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
-          <div class="text-[11px] text-slate-400">Manual Back-Office Cost (₹30/call)</div>
-          <div id="roiManualCost" class="mono text-xl font-extrabold text-rose-400 mt-1">₹3,00,000</div>
-          <div class="text-[11px] text-slate-500 mt-1">Paper slips + call-center reconciliation</div>
-        </div>
-        <div class="bg-slate-900/80 border border-emerald-500/30 rounded-xl p-4">
-          <div class="text-[11px] text-emerald-300">DeliverEx Live Cost (₹2.20/call)</div>
-          <div id="roiAiCost" class="mono text-xl font-extrabold text-emerald-400 mt-1">₹22,000</div>
-          <div class="text-[11px] text-slate-400 mt-1">Gemini Live API + Cloud Run + WhatsApp</div>
-        </div>
-        <div class="bg-emerald-950/40 border border-emerald-500/40 rounded-xl p-4">
-          <div class="text-[11px] text-emerald-200">Net Monthly Savings</div>
-          <div id="roiSavings" class="mono text-2xl font-extrabold text-white mt-1">₹2,78,000</div>
-          <div id="roiMultiple" class="text-xs font-bold text-emerald-400 mt-1">13.6x ROI &bull; 92% Cost Reduction</div>
-        </div>
-        <div class="bg-slate-900/80 border border-cyan-500/30 rounded-xl p-4">
-          <div class="text-[11px] text-cyan-300">Operational Impact</div>
-          <div class="text-sm font-bold text-white mt-1">Reconciliation: 24 hrs &rarr; 18 sec</div>
-          <div class="text-xs text-slate-300 mt-1">First-Contact Resolution: 55% &rarr; 92%</div>
-          <div class="text-xs text-slate-400 mt-0.5">Languages: Hindi, Hinglish, Tamil, Marathi, Telugu</div>
-        </div>
+      <div class="ar-scanner-wrap">
+        <div class="ar-corner ar-tl"></div>
+        <div class="ar-corner ar-tr"></div>
+        <div class="ar-corner ar-bl"></div>
+        <div class="ar-corner ar-br"></div>
+        <div class="ar-scanline"></div>
+        <img id="visionLightboxImg" alt="Zoomed visual proof" class="w-full rounded-xl object-contain max-h-[65vh]" />
       </div>
     </div>
-  </section>
+  </div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=20261122_19"></script>
 </body>
 </html>

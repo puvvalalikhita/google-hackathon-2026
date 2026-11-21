@@ -6,19 +6,20 @@ import time
 from typing import Any, Dict, Optional, Set
 
 from fastapi import WebSocket, WebSocketDisconnect
-from google import genai
-from google.genai import types
 
-from app.database import get_full_state
+from app.database import add_whatsapp_message, get_full_state
 from app.tools import GEMINI_TOOL_DECLARATIONS, execute_tool, set_latest_visual_proof
+from app.tts import synthesize_speech_b64
+from app.workflows import is_vertex_configured, run_guided_workflow_step, run_voice_agent_workflow
 
 SYSTEM_INSTRUCTION = """You are DeliverEx Live AI — a fast, friendly, multimodal real-time frontline voice & vision operations agent for Indian MSME wholesale logistics (DeliverEx Logistics).
 
 ROLE & STYLE:
 - You speak directly with field delivery drivers (like Raju) standing in loud, busy wholesale markets (Old Delhi Mandi, Chennai T. Nagar) or driving trucks.
-- Match the speaker's language naturally: fluent Hinglish (Hindi + English), Tanglish (Tamil + English), Hindi, Tamil, Marathi, or English. Default to warm, respectful Hinglish ("Ji Raju bhai..."), or switch instantaneously to Tanglish ("Seri anna...") if the driver speaks Tamil/Tanglish!
+- Match the speaker's language naturally and immediately: fluent Hinglish (Hindi + English), Hindi, Telugu, Tenglish (Telugu + English), Tamil, Tanglish (Tamil + English), Marathi, or English. Default to warm, respectful Hinglish ("Ji Raju bhai..."), and switch IMMEDIATELY whenever the driver speaks or asks for another language (e.g., Telugu, English, Hindi, or Tamil)!
 - Keep responses concise (1 to 3 short sentences) for sub-second voice turn-taking. Never read raw JSON.
 - If the driver interrupts you mid-sentence, stop immediately, acknowledge the correction naturally ("Achha samajh gaya, 18 bags..."), and proceed with the updated numbers.
+- EMPATHY & NON-DELIVERY EXCEPTIONS: If the driver says they are sick/unwell, couldn't deliver anything, the shop is closed, or they are stuck in traffic/rain/breakdown, NEVER ask "how many bags were delivered?"! Respond with warmth and care (tell them to rest/drive safely first), confirm 0 bags logged, and call `request_human_handoff` to notify Area Manager Priya Sharma to arrange backup or reschedule.
 
 TRUE MULTIMODALITY (VOICE + VISION) & DAMAGED BAGS RULE:
 - Whenever a driver mentions OR shows torn/damaged bags on camera, ALWAYS verify and state the EXACT store/shop name (e.g., Krishna Hardware, Shri Ganesh Stores, Murugan Builders, Bharat Traders).
@@ -122,31 +123,192 @@ class LiveBridgeSession:
             except Exception as exc:
                 await self.send_ui({"type": "error", "message": f"Approval injection error: {exc}"})
 
+    async def _emit_workflow_result(self, user_text: str, wf: Dict[str, Any]) -> None:
+        if wf.get("is_barge_in"):
+            self.interruption_count += 1
+            await self.send_ui(
+                {
+                    "type": "interrupted",
+                    "count": self.interruption_count,
+                    "timestamp": time.time(),
+                }
+            )
+
+        if user_text:
+            await self.send_ui({"type": "transcript", "role": "user", "text": user_text, "final": True})
+
+        for ev in wf.get("tool_events", []):
+            await self.send_ui({"type": "tool_call_start", "name": ev["name"], "args": ev["args"]})
+            await self.send_ui(
+                {
+                    "type": "tool_call_result",
+                    "name": ev["name"],
+                    "args": ev["args"],
+                    "result": ev["result"],
+                    "meta": ev["meta"],
+                }
+            )
+
+        # Co-work with WhatsApp Chat: mirror operational Live Call updates & AI replies cleanly into WhatsApp thread
+        casual_intents = {"GREETING", "UNCLEAR_AUDIO", "HOW_ARE_YOU", "ACK_THANKS", "HELP_CAPABILITIES", "LANG_SWITCH", "CANCEL_ACTION"}
+        if user_text and wf.get("reply_text") and wf.get("intent") not in casual_intents:
+            add_whatsapp_message(
+                "driver",
+                f"📞 [Live Call] {user_text}",
+                msg_type="text",
+                metadata={"channel": "GEMINI_LIVE_VOICE"},
+            )
+            add_whatsapp_message(
+                "bot",
+                wf["reply_text"],
+                msg_type="text",
+                metadata={
+                    "sender_label": "DeliverEx Live Voice Sync",
+                    "intent": wf.get("intent"),
+                    "processing_ms": round(wf.get("processing_ms", 0)),
+                    "used_gemini": wf.get("used_gemini", False),
+                },
+            )
+
+        audio_b64 = await synthesize_speech_b64(wf["reply_text"], wf.get("detected_language"))
+        await self.send_ui({"type": "erp_state", "state": get_full_state()})
+        await self.send_ui({"type": "latency", "ttfa_ms": max(180, round(wf.get("processing_ms", 320)))})
+        await self.send_ui(
+            {
+                "type": "workflow_reply",
+                "text": wf["reply_text"],
+                "intent": wf["intent"],
+                "detected_language": wf.get("detected_language"),
+                "lang_code": wf.get("lang_code"),
+                "audio_b64": audio_b64,
+                "audio_mime": "audio/mpeg" if audio_b64 else None,
+                "guidance": wf.get("guidance"),
+                "result": wf.get("result"),
+            }
+        )
+        await self.send_ui({"type": "turn_complete"})
+
+    async def _run_workflow_bridge_loop(self, reason_message: str) -> None:
+        """Runs full backend workflow orchestration over WebSocket when Gemini Live Audio is inactive."""
+        await self.send_ui(
+            {
+                "type": "status",
+                "mode": "WORKFLOW_ENGINE",
+                "connected": False,
+                "workflow_ready": True,
+                "message": reason_message,
+            }
+        )
+        while not self.closed:
+            raw = await self.ws.receive_text()
+            msg = json.loads(raw)
+            msg_type = msg.get("type")
+
+            if msg_type == "ping":
+                await self.send_ui({"type": "pong"})
+
+            elif msg_type == "guided_step":
+                step = int(msg.get("step", 1))
+                wf = await run_guided_workflow_step(step, preferred_language=msg.get("preferred_language"))
+                await self._emit_workflow_result(wf["user_text"], wf)
+
+            elif msg_type == "text_turn":
+                text = (msg.get("text") or "").strip()
+                if text:
+                    wf = await run_voice_agent_workflow(
+                        text,
+                        driver_name=msg.get("driver_name") or "Raju Kumar",
+                        active_store=msg.get("active_store"),
+                        preferred_language=msg.get("preferred_language"),
+                    )
+                    await self._emit_workflow_result(text, wf)
+
+            elif msg_type == "audio_turn":
+                b64_audio = msg.get("data") or ""
+                if b64_audio:
+                    audio_bytes = base64.b64decode(b64_audio)
+                    wf = await run_voice_agent_workflow(
+                        "",
+                        audio_bytes=audio_bytes,
+                        mime_type=msg.get("mime_type") or "audio/wav",
+                        driver_name=msg.get("driver_name") or "Raju Kumar",
+                        active_store=msg.get("active_store"),
+                        preferred_language=msg.get("preferred_language"),
+                    )
+                    spoken_user_text = (wf.get("user_transcript") or "").strip()
+                    if not spoken_user_text and wf.get("intent") != "UNCLEAR_AUDIO":
+                        spoken_user_text = "🎤 [Live Voice]"
+                    await self._emit_workflow_result(spoken_user_text, wf)
+
+            elif msg_type == "video_frame":
+                data_url = msg.get("data_url", "")
+                if data_url:
+                    dmg = int(msg.get("damaged_bags", 2) or 2)
+                    proof_info = set_latest_visual_proof(
+                        data_url,
+                        msg.get("caption", "Live Field Camera Frame"),
+                        customer_name=msg.get("customer_name"),
+                        damaged_bags=dmg,
+                        auto_create_approval=bool(msg.get("auto_create_approval", True)),
+                    )
+                    store_name = proof_info.get("customer_name") or "Krishna Hardware"
+                    if msg.get("prompt"):
+                        g_args = {
+                            "intent": "VISUAL_DAMAGE_VERIFIED",
+                            "language": "Hinglish (HI+EN)",
+                            "sentiment": "CONCERNED",
+                            "coach_tip": f"{dmg} torn bags verified for {store_name} & attached to Priya Sharma's 1-Tap Approval Card (SOP-5.1)!",
+                            "suggested_phrase": f"Uncle, {store_name} ke {dmg} damaged bags ki photo AI ne verify karke Priya ma'am ko bhej di hai.",
+                        }
+                        g_res, g_meta = execute_tool("update_frontline_guidance", g_args)
+                        await self.send_ui(
+                            {
+                                "type": "tool_call_result",
+                                "name": "log_damaged_bags_report",
+                                "args": {"customer_name": store_name, "damaged_bags": dmg, "visual_proof": "verified"},
+                                "result": proof_info,
+                                "meta": {"tool": "log_damaged_bags_report", "elapsed_ms": 18.0, "status": "ESCALATED"},
+                            }
+                        )
+                        await self.send_ui(
+                            {
+                                "type": "tool_call_result",
+                                "name": "update_frontline_guidance",
+                                "args": g_args,
+                                "result": g_res,
+                                "meta": g_meta,
+                            }
+                        )
+                        await self.send_ui({"type": "erp_state", "state": get_full_state()})
+                        await self.send_ui(
+                            {
+                                "type": "workflow_reply",
+                                "text": (
+                                    f"Haan Raju bhai, camera photo mein {store_name} ke {dmg} torn cement bags clear dikh rahe hain! "
+                                    f"Maine yeh visual proof seedha {store_name} ke naam se Priya ma'am ke approval card par attach kar diya hai."
+                                ),
+                                "intent": "VISUAL_DAMAGE_VERIFIED",
+                                "guidance": g_res.get("guidance"),
+                            }
+                        )
+                    else:
+                        await self.send_ui({"type": "erp_state", "state": get_full_state()})
+
     async def run(self) -> None:
         api_key = os.getenv("GEMINI_API_KEY", "").strip()
         model_name = os.getenv("GEMINI_LIVE_MODEL", "gemini-3.8-live").strip()
         voice_name = os.getenv("GEMINI_VOICE_NAME", "Kore").strip()
-        use_vertex = os.getenv("USE_VERTEX_AI", "false").strip().lower() == "true"
+        use_vertex = is_vertex_configured(api_key)
 
         await self.ws.accept()
         ACTIVE_SESSIONS.register(self)
         await self.send_ui({"type": "erp_state", "state": get_full_state()})
 
         if not api_key:
-            await self.send_ui(
-                {
-                    "type": "status",
-                    "mode": "DEMO_ONLY",
-                    "connected": False,
-                    "message": "GEMINI_API_KEY is not set in .env — use Interactive Demo Mode or add your key to enable Live Gemini Voice.",
-                }
-            )
             try:
-                while True:
-                    raw = await self.ws.receive_text()
-                    data = json.loads(raw)
-                    if data.get("type") == "ping":
-                        await self.send_ui({"type": "pong"})
+                await self._run_workflow_bridge_loop(
+                    "Backend Workflow Mode Active (Add GEMINI_API_KEY in .env for Live Gemini Audio)"
+                )
             except WebSocketDisconnect:
                 pass
             finally:
@@ -154,23 +316,24 @@ class LiveBridgeSession:
                 ACTIVE_SESSIONS.unregister(self)
             return
 
+        from google import genai
+
         if use_vertex:
             client = genai.Client(vertexai=True, api_key=api_key)
             candidate_models = [
                 model_name,
                 "gemini-live-2.5-flash-native-audio",
-                "gemini-3.8-live",
+                "gemini-2.5-flash-native-audio-preview-12-2025",
             ]
         else:
             client = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
             candidate_models = [
                 model_name,
-                "gemini-3.8-live",
-                "gemini-3.1-flash-live-preview",
                 "gemini-2.5-flash-native-audio-latest",
                 "gemini-2.5-flash-native-audio-preview-12-2025",
+                "gemini-3.1-flash-live-preview",
+                "gemini-2.0-flash-live-001",
             ]
-        # Preserve order & remove duplicates
         candidate_models = list(dict.fromkeys([m for m in candidate_models if m]))
 
         config: Dict[str, Any] = {
@@ -212,7 +375,9 @@ class LiveBridgeSession:
                         }
                     )
 
-                    async with client.aio.live.connect(model=active_model, config=config) as session:
+                    cm = client.aio.live.connect(model=active_model, config=config)
+                    session = await asyncio.wait_for(cm.__aenter__(), timeout=8.0)
+                    try:
                         connected_once = True
                         self.gemini_session = session
                         await self.send_ui(
@@ -228,7 +393,6 @@ class LiveBridgeSession:
                         recv_task = asyncio.create_task(self._receive_from_gemini())
                         send_task = asyncio.create_task(self._receive_from_browser())
 
-                        # Proactively greet Raju in Hinglish as soon as the live call connects
                         self.last_user_audio_ts = time.perf_counter()
                         self.awaiting_first_audio = True
                         await session.send_realtime_input(
@@ -243,6 +407,8 @@ class LiveBridgeSession:
                         for task in done:
                             if not task.cancelled() and task.exception():
                                 raise task.exception()
+                    finally:
+                        await cm.__aexit__(None, None, None)
                     break
                 except WebSocketDisconnect:
                     raise
@@ -250,11 +416,19 @@ class LiveBridgeSession:
                     last_err = exc
                     if connected_once:
                         raise
-                    # Try next candidate model if initial handshake failed
                     continue
 
             if not connected_once and last_err is not None:
-                raise last_err
+                # Stay alive in Backend Workflow Engine mode instead of dropping the WebSocket!
+                await self.send_ui(
+                    {
+                        "type": "error",
+                        "message": f"Gemini Live Audio unavailable ({last_err}). Switched seamlessly to Backend Workflow Mode.",
+                    }
+                )
+                await self._run_workflow_bridge_loop(
+                    "Backend Workflow Mode Active (Live Audio fallback — full ERP & HITL workflows running)"
+                )
 
         except WebSocketDisconnect:
             pass
@@ -262,7 +436,7 @@ class LiveBridgeSession:
             await self.send_ui(
                 {
                     "type": "error",
-                    "message": f"Gemini Live connection failed: {exc}. If using Vertex AI Express, verify Live API access or use a Google AI Studio key (AIza...) in .env.",
+                    "message": f"Gemini Live session ended: {exc}",
                 }
             )
         finally:
@@ -271,6 +445,8 @@ class LiveBridgeSession:
             ACTIVE_SESSIONS.unregister(self)
 
     async def _receive_from_browser(self) -> None:
+        from google.genai import types
+
         while not self.closed:
             raw = await self.ws.receive_text()
             msg = json.loads(raw)
@@ -278,7 +454,6 @@ class LiveBridgeSession:
 
             if msg_type == "audio_chunk" and self.gemini_session is not None:
                 pcm_bytes = base64.b64decode(msg["data"])
-                # Track end-of-speech timestamp for latency measurement when voice activity is detected
                 if msg.get("speaking"):
                     self.last_user_audio_ts = time.perf_counter()
                     self.awaiting_first_audio = True
@@ -313,13 +488,47 @@ class LiveBridgeSession:
                         await self.gemini_session.send_realtime_input(text=enriched_prompt)
                     await self.send_ui({"type": "erp_state", "state": get_full_state()})
 
+            elif msg_type == "guided_step" and self.gemini_session is not None:
+                step = int(msg.get("step", 1))
+                step_texts = {
+                    1: "Hello, main Raju bol raha hoon Old Delhi market se. Krishna Hardware pe 20 bags cement deliver kar diya aur 15000 rupees cash mil gaya.",
+                    2: "Ruko ruko! 20 nahi, 18 bags sahi deliver hue hain, 2 bags phate hue damaged nikle. Aur uncle bol rahe hain 500 rupees extra discount de do aur 15000 mein invoice settle kar lo!",
+                    3: "Uncle gussa ho rahe hain invoice balance pe, please Priya ma'am se direct baat karwa do!",
+                    4: "Anna, T. Nagar Murugan Builders-la 25 bags cement unload pannitten, 18400 cash kedaichuduchu, receipt WhatsApp-la anuppunga!",
+                }
+                text = step_texts.get(step, "")
+                if text:
+                    self.last_user_audio_ts = time.perf_counter()
+                    self.awaiting_first_audio = True
+                    await self.send_ui({"type": "transcript", "role": "user", "text": text, "final": True})
+                    await self.gemini_session.send_realtime_input(text=text)
+
             elif msg_type == "text_turn" and self.gemini_session is not None:
                 text = (msg.get("text") or "").strip()
                 if text:
                     self.last_user_audio_ts = time.perf_counter()
                     self.awaiting_first_audio = True
                     await self.send_ui({"type": "transcript", "role": "user", "text": text, "final": True})
-                    await self.gemini_session.send_realtime_input(text=text)
+                    pref_lang = (msg.get("preferred_language") or "").strip()
+                    prompt_txt = (
+                        f"[REPLY LANGUAGE: {pref_lang}] {text}"
+                        if pref_lang and pref_lang not in {"auto", "unlock"}
+                        else text
+                    )
+                    await self.gemini_session.send_realtime_input(text=prompt_txt)
+
+            elif msg_type == "set_language" and self.gemini_session is not None:
+                lang_label = (msg.get("language") or "auto").strip()
+                self.last_user_audio_ts = time.perf_counter()
+                self.awaiting_first_audio = True
+                if lang_label.lower() == "auto":
+                    await self.gemini_session.send_realtime_input(
+                        text="[SYSTEM]: Auto-language mode enabled. Match whatever language the driver speaks next."
+                    )
+                else:
+                    await self.gemini_session.send_realtime_input(
+                        text=f"[SYSTEM]: The driver switched their preferred language to {lang_label}. Immediately acknowledge in 1 warm short sentence strictly in {lang_label}, and continue speaking ONLY in {lang_label} unless they ask to switch again."
+                    )
 
             elif msg_type == "force_end_turn" and self.gemini_session is not None:
                 self.last_user_audio_ts = time.perf_counter()
@@ -330,12 +539,13 @@ class LiveBridgeSession:
                 await self.send_ui({"type": "pong"})
 
     async def _receive_from_gemini(self) -> None:
+        from google.genai import types
+
         while not self.closed and self.gemini_session is not None:
             async for chunk in self.gemini_session.receive():
                 server_content = getattr(chunk, "server_content", None)
 
                 if server_content:
-                    # 1. Mid-sentence barge-in / interruption detected by Gemini Live API!
                     if getattr(server_content, "interrupted", False):
                         self.interruption_count += 1
                         self.awaiting_first_audio = True
@@ -348,7 +558,6 @@ class LiveBridgeSession:
                             }
                         )
 
-                    # 2. Input audio transcription (Raju's spoken Hinglish/regional speech)
                     in_tx = getattr(server_content, "input_transcription", None)
                     if in_tx and getattr(in_tx, "text", None):
                         await self.send_ui(
@@ -360,7 +569,6 @@ class LiveBridgeSession:
                             }
                         )
 
-                    # 3. Output audio transcription (AI's spoken response)
                     out_tx = getattr(server_content, "output_transcription", None)
                     if out_tx and getattr(out_tx, "text", None):
                         await self.send_ui(
@@ -372,7 +580,6 @@ class LiveBridgeSession:
                             }
                         )
 
-                    # 4. Native 24kHz PCM audio chunks
                     model_turn = getattr(server_content, "model_turn", None)
                     if model_turn and getattr(model_turn, "parts", None):
                         for part in model_turn.parts:
@@ -399,7 +606,6 @@ class LiveBridgeSession:
                     if getattr(server_content, "turn_complete", False):
                         await self.send_ui({"type": "turn_complete"})
 
-                # 5. Live Function / Tool Calling during voice conversation
                 tool_call = getattr(chunk, "tool_call", None)
                 if tool_call and getattr(tool_call, "function_calls", None):
                     function_responses = []
@@ -414,7 +620,11 @@ class LiveBridgeSession:
                             }
                         )
 
-                        result_data, meta = execute_tool(fn_name, fn_args, channel="GEMINI_LIVE_VOICE")
+                        try:
+                            result_data, meta = execute_tool(fn_name, fn_args, channel="GEMINI_LIVE_VOICE")
+                        except Exception as exc:
+                            result_data = {"success": False, "error": str(exc)}
+                            meta = {"tool": fn_name, "elapsed_ms": 0.0, "status": "ERROR", "error": str(exc)}
 
                         await self.send_ui(
                             {

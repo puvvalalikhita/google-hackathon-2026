@@ -1,0 +1,28 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer Gold Ring -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M54,26a28,28 0,1 1,0 56a28,28 0,1 1,0 -56"
+        android:strokeWidth="3.5"
+        android:strokeColor="#FBBF24" />
+    <!-- Voice Waveform Bars + Truck Shield Silhouette -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M36,50 L40,50 L40,58 L36,58 Z" />
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M44,41 L48,41 L48,67 L44,67 Z" />
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M52,35 L56,35 L56,73 L52,73 Z" />
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M60,41 L64,41 L64,67 L60,67 Z" />
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M68,48 L72,48 L72,60 L68,60 Z" />
+</vector>
