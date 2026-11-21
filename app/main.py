@@ -50,6 +50,9 @@ class DemoToolBody(BaseModel):
 class ProofPhotoBody(BaseModel):
     data_url: str
     caption: str = "Field Camera Proof (Damaged Bags)"
+    customer_name: Optional[str] = None
+    damaged_bags: int = 2
+    auto_create_approval: bool = True
 
 
 @app.get("/")
@@ -85,7 +88,13 @@ async def api_reset():
 
 @app.post("/api/proof-photo")
 async def api_proof_photo(body: ProofPhotoBody):
-    info = set_latest_visual_proof(body.data_url, body.caption)
+    info = set_latest_visual_proof(
+        body.data_url,
+        body.caption,
+        customer_name=body.customer_name,
+        damaged_bags=body.damaged_bags,
+        auto_create_approval=body.auto_create_approval,
+    )
     await ACTIVE_SESSIONS.broadcast_erp_state()
     return {"proof": info, "state": get_full_state()}
 

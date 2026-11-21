@@ -354,6 +354,9 @@ function handleServerEvent(msg) {
       if (msg.name === "update_frontline_guidance" && msg.meta?.guidance) {
         updateFrontlineHud(msg.meta.guidance);
       }
+      if (msg.result?.customer_name || msg.result?.name) {
+        syncActiveStoreDropdown(msg.result.customer_name || msg.result.name);
+      }
       break;
 
     case "erp_state":
@@ -932,8 +935,8 @@ function renderErpState(state) {
                 ? `<div class="mt-2 rounded-lg overflow-hidden border border-cyan-500/35 bg-slate-950/70">
                      <img src="${a.proof_image}" alt="Visual proof of damage" class="w-full h-24 object-cover" />
                      <div class="px-2 py-1 text-[10px] text-cyan-300 flex items-center justify-between">
-                       <span>👁️ Gemini Vision Verified Proof</span>
-                       <span class="mono text-slate-400">GPS: Old Delhi Mandi</span>
+                       <span>👁️ Gemini Vision Verified (${a.damaged_qty || 2} torn bags)</span>
+                       <span class="mono text-amber-300 font-bold">Store: ${escapeHtml(a.customer_name)}</span>
                      </div>
                    </div>`
                 : ""
@@ -1094,6 +1097,22 @@ function renderLatencySparkline() {
 }
 
 // --- LIVE MULTIMODAL VISION PROOF-OF-DELIVERY (See + Hear + Speak) ---
+function getActiveStoreName() {
+  const sel = document.getElementById("activeStoreSelect");
+  return sel ? sel.value : "Krishna Hardware";
+}
+
+function syncActiveStoreDropdown(storeName) {
+  const sel = document.getElementById("activeStoreSelect");
+  if (!sel || !storeName) return;
+  for (const opt of sel.options) {
+    if (opt.value.toLowerCase() === storeName.toLowerCase()) {
+      sel.value = opt.value;
+      return;
+    }
+  }
+}
+
 async function toggleLiveCamera() {
   const btn = document.getElementById("cameraToggleBtn");
   const video = document.getElementById("cameraPreview");
@@ -1117,7 +1136,8 @@ async function toggleLiveCamera() {
     document.getElementById("proofThumbPreview").classList.add("hidden");
     cameraActive = true;
     btn.textContent = "⏹ Stop Camera";
-    badge.textContent = "Streaming 1 FPS";
+    const storeName = getActiveStoreName();
+    badge.textContent = `Streaming • ${storeName}`;
 
     const snapAndSend = async (includePrompt) => {
       if (!video.videoWidth) return;
@@ -1126,10 +1146,12 @@ async function toggleLiveCamera() {
       c.height = 270;
       c.getContext("2d").drawImage(video, 0, 0, c.width, c.height);
       const dataUrl = c.toDataURL("image/jpeg", 0.72);
+      const currentStore = getActiveStoreName();
       await dispatchProofFrame(
         dataUrl,
-        "Live Camera Proof",
-        includePrompt ? "Yeh dekho camera pe live dikha raha hoon — check karo kitne bags damaged hain!" : null
+        `Live Camera Proof (${currentStore})`,
+        includePrompt ? `Yeh dekho ${currentStore} pe live camera dikha raha hoon — check karo kitne bags damaged hain aur ${currentStore} ke naam se log karo!` : null,
+        currentStore
       );
     };
 
@@ -1142,49 +1164,66 @@ async function toggleLiveCamera() {
 
 async function sendSampleDamagePhoto() {
   if (!callActive) await startLiveCall();
-  const dataUrl = generateSampleDamageProofImage();
+  const storeName = getActiveStoreName();
+  const dataUrl = generateSampleDamageProofImage(storeName);
   const img = document.getElementById("proofThumbPreview");
   img.src = dataUrl;
   img.classList.remove("hidden");
   document.getElementById("cameraPreview").classList.add("hidden");
-  document.getElementById("visionStatusBadge").textContent = "2 Torn Bags Verified";
+  document.getElementById("visionStatusBadge").textContent = `2 Torn Bags • ${storeName}`;
 
   await dispatchProofFrame(
     dataUrl,
-    "2 Torn UltraTech Cement Bags (Old Delhi Market)",
-    "Yeh dekho photo bhej diya hai — 2 UltraTech Cement bags phate hue hain. Verify karke Priya ma'am ko bhej do!"
+    `2 Torn Cement Bags at ${storeName}`,
+    `Yeh dekho ${storeName} se photo bhej diya hai — ${storeName} par 2 cement bags phate hue hain. Verify karke ${storeName} ke naam se Priya ma'am ko bhej do!`,
+    storeName
   );
 
   if (!liveReady) {
-    logToolCall("gemini_live_vision_inspect", { frame: "jpeg_480x270", detected: "2 torn cement bags" }, "VERIFIED", 290);
+    logToolCall("log_damaged_bags_report", { customer_name: storeName, damaged_bags: 2, visual_proof: "verified" }, "ESCALATED", 260);
     updateFrontlineHud({
       intent: "VISUAL_DAMAGE_VERIFIED",
       language: "Hinglish (HI+EN)",
-      sentiment: "CALM",
-      coach_tip: "2 torn UltraTech bags visually verified & attached directly to Priya Sharma's 1-Tap Approval Card!",
-      suggested_phrase: "Uncle, photo AI ne verify karke Priya ma'am ko bhej di hai — ab 1-tap approval turant ho jayega.",
+      sentiment: "CONCERNED",
+      coach_tip: `2 torn bags verified for ${storeName} & attached directly to Priya Sharma's 1-Tap Approval Card (SOP-5.1)!`,
+      suggested_phrase: `Uncle, ${storeName} ke 2 damaged bags ki photo AI ne verify karke Priya ma'am ko bhej di hai — ab turant approval aa jayega.`,
     });
     speakDemoVoice(
-      "Haan Raju bhai, camera photo mein 2 torn UltraTech Cement bags clear dikh rahe hain! Maine yeh visual proof seedha Priya ma'am ke approval card par attach kar diya hai.",
+      `Haan Raju bhai, camera photo mein ${storeName} ke 2 torn cement bags clear dikh rahe hain! Maine yeh visual proof seedha ${storeName} ke naam se Priya ma'am ke approval card par attach kar diya hai.`,
       310
     );
   }
 }
 
-async function dispatchProofFrame(dataUrl, caption, prompt) {
+async function dispatchProofFrame(dataUrl, caption, prompt, customerName) {
+  const store = customerName || getActiveStoreName();
   if (liveReady && ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: "video_frame", data_url: dataUrl, caption, prompt }));
+    ws.send(JSON.stringify({
+      type: "video_frame",
+      data_url: dataUrl,
+      caption,
+      prompt,
+      customer_name: store,
+      damaged_bags: 2,
+      auto_create_approval: true,
+    }));
   } else {
     const res = await fetch("/api/proof-photo", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data_url: dataUrl, caption }),
+      body: JSON.stringify({
+        data_url: dataUrl,
+        caption,
+        customer_name: store,
+        damaged_bags: 2,
+        auto_create_approval: true,
+      }),
     }).then((r) => r.json());
     renderErpState(res.state);
   }
 }
 
-function generateSampleDamageProofImage() {
+function generateSampleDamageProofImage(storeName = "Krishna Hardware") {
   const c = document.createElement("canvas");
   c.width = 480;
   c.height = 240;
@@ -1233,12 +1272,12 @@ function generateSampleDamageProofImage() {
   drawBag(45, 65, "TORN_BAG #1 (96% conf)");
   drawBag(260, 65, "TORN_BAG #2 (94% conf)");
 
-  // Timestamp + GPS watermark
-  ctx.fillStyle = "rgba(2, 6, 23, 0.78)";
+  // Timestamp + Store watermark
+  ctx.fillStyle = "rgba(2, 6, 23, 0.82)";
   ctx.fillRect(0, 206, 480, 34);
   ctx.fillStyle = "#34d399";
   ctx.font = "bold 11px monospace";
-  ctx.fillText(`DELIVEREX CAM • OLD DELHI MANDI • ${new Date().toLocaleTimeString()} • INV-8841`, 14, 227);
+  ctx.fillText(`DELIVEREX CAM • ${storeName.toUpperCase()} • ${new Date().toLocaleTimeString()}`, 14, 227);
 
   return c.toDataURL("image/jpeg", 0.85);
 }

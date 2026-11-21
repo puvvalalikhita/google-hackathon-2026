@@ -20,8 +20,11 @@ ROLE & STYLE:
 - Keep responses concise (1 to 3 short sentences) for sub-second voice turn-taking. Never read raw JSON.
 - If the driver interrupts you mid-sentence, stop immediately, acknowledge the correction naturally ("Achha samajh gaya, 18 bags..."), and proceed with the updated numbers.
 
-TRUE MULTIMODALITY (VOICE + VISION):
-- If the driver shows a live camera frame or photo (e.g., torn cement bags, cash, or handwritten invoice), visually inspect it, confirm what you see (e.g., "Haan photo mein 2 torn UltraTech bags clear dikh rahe hain"), and note that the visual evidence has been attached to Area Manager Priya's 1-tap approval card!
+TRUE MULTIMODALITY (VOICE + VISION) & DAMAGED BAGS RULE:
+- Whenever a driver mentions OR shows torn/damaged bags on camera, ALWAYS verify and state the EXACT store/shop name (e.g., Krishna Hardware, Shri Ganesh Stores, Murugan Builders, Bharat Traders).
+- If the driver has NOT mentioned which store the torn bags came from, ALWAYS ask first: "Raju bhai, kis shop par torn bags nikle — Krishna Hardware, Shri Ganesh Stores, ya Murugan Builders?" before logging the damage.
+- Once you know the store name, IMMEDIATELY call `log_damaged_bags_report(customer_name=..., damaged_bags=...)` (or `record_delivery_and_update_ledger` if cash/delivery details were also given) so the exact store name, quarantine count, and visual proof are ALWAYS logged on Area Manager Priya's approval card!
+- If the driver shows a live camera frame or photo of torn bags, confirm both the bag count AND the exact store name out loud (e.g., "Haan photo mein Krishna Hardware ke 2 torn UltraTech bags clear dikh rahe hain — maine Krishna Hardware ke naam se Priya ma'am ko bhej diya hai!").
 
 MANDATORY GROUNDING, COACHING & TOOL WORKFLOW:
 1. When a driver mentions a shop/customer name (e.g., Krishna Hardware, Shri Ganesh Stores, Murugan Builders, Bharat Traders), ALWAYS call `lookup_customer_and_invoice` first.
@@ -290,15 +293,27 @@ class LiveBridgeSession:
                 b64_raw = data_url.split(",", 1)[1] if "," in data_url else data_url
                 if b64_raw:
                     img_bytes = base64.b64decode(b64_raw)
-                    set_latest_visual_proof(data_url, msg.get("caption", "Live Field Camera Frame"))
+                    proof_info = set_latest_visual_proof(
+                        data_url,
+                        msg.get("caption", "Live Field Camera Frame"),
+                        customer_name=msg.get("customer_name"),
+                        damaged_bags=int(msg.get("damaged_bags", 2) or 2),
+                        auto_create_approval=bool(msg.get("auto_create_approval", True)),
+                    )
                     await self.gemini_session.send_realtime_input(
                         video=types.Blob(data=img_bytes, mime_type="image/jpeg")
                     )
                     if msg.get("prompt"):
                         self.last_user_audio_ts = time.perf_counter()
                         self.awaiting_first_audio = True
+                        store_tag = proof_info.get("customer_name") or "Krishna Hardware"
+                        inv_tag = proof_info.get("invoice_id") or ""
+                        enriched_prompt = (
+                            f"[STORE CONTEXT: {store_tag} ({inv_tag}) — Visual damage proof already attached to Priya's approval card {proof_info.get('attached_to_approval') or ''}] "
+                            + msg["prompt"]
+                        )
                         await self.gemini_session.send_client_content(
-                            turns=types.Content(role="user", parts=[types.Part(text=msg["prompt"])]),
+                            turns=types.Content(role="user", parts=[types.Part(text=enriched_prompt)]),
                             turn_complete=True,
                         )
                     await self.send_ui({"type": "erp_state", "state": get_full_state()})

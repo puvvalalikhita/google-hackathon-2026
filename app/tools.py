@@ -5,26 +5,93 @@ from typing import Any, Dict, List, Optional, Tuple
 from app.database import _now_iso, find_customer, get_conn, get_full_state
 from app.policies import lookup_policies
 
-# Holds the latest multimodal camera/photo proof captured during the active delivery session
-LATEST_VISUAL_PROOF: Dict[str, Any] = {"data_url": None, "caption": None}
+# Holds the latest multimodal camera/photo proof & active store context
+LATEST_VISUAL_PROOF: Dict[str, Any] = {
+    "data_url": None,
+    "caption": None,
+    "customer_name": "Krishna Hardware",
+}
 
 
-def set_latest_visual_proof(data_url: Optional[str], caption: str = "Field Camera Proof") -> Dict[str, Any]:
+def set_latest_visual_proof(
+    data_url: Optional[str],
+    caption: str = "Field Camera Proof",
+    customer_name: Optional[str] = None,
+    damaged_bags: int = 2,
+    auto_create_approval: bool = False,
+) -> Dict[str, Any]:
     LATEST_VISUAL_PROOF["data_url"] = data_url
     LATEST_VISUAL_PROOF["caption"] = caption
+    if customer_name:
+        LATEST_VISUAL_PROOF["customer_name"] = customer_name
+
+    resolved_name = customer_name or LATEST_VISUAL_PROOF.get("customer_name") or "Krishna Hardware"
+    cust = find_customer(resolved_name) or find_customer("Krishna Hardware")
     attached_to = None
-    if data_url:
+
+    if data_url and cust:
         conn = get_conn()
         cur = conn.cursor()
+        # 1. Prefer an existing PENDING approval for THIS exact store
         row = cur.execute(
-            "SELECT approval_id FROM approvals WHERE status = 'PENDING' ORDER BY created_at DESC LIMIT 1"
+            "SELECT approval_id, damaged_qty FROM approvals WHERE status = 'PENDING' AND customer_id = ? ORDER BY created_at DESC LIMIT 1",
+            (cust["customer_id"],),
         ).fetchone()
         if row:
             attached_to = row["approval_id"]
-            cur.execute("UPDATE approvals SET proof_image = ? WHERE approval_id = ?", (data_url, attached_to))
+            new_dmg = max(int(row["damaged_qty"] or 0), int(damaged_bags or 0))
+            cur.execute(
+                "UPDATE approvals SET proof_image = ?, damaged_qty = ? WHERE approval_id = ?",
+                (data_url, new_dmg, attached_to),
+            )
+            conn.commit()
+        elif auto_create_approval:
+            # 2. If user clicked Show Torn Bags BEFORE logging delivery, create an explicit store-tagged SOP-5.1 approval card!
+            now = _now_iso()
+            attached_to = _short_id("APR")
+            dmg = max(1, int(damaged_bags or 2))
+            summary = f"{cust['name']} ({cust['pending_invoice_id']}): {dmg} torn/damaged bags visually verified via field camera — moved to quarantine"
+            cur.execute(
+                """
+                INSERT INTO approvals (
+                    approval_id, created_at, driver_name, customer_id, customer_name,
+                    entry_id, exception_type, policy_ref, summary, discount_requested,
+                    damaged_qty, proof_image, status
+                ) VALUES (?, ?, 'Raju Kumar', ?, ?, NULL, 'DAMAGED_GOODS', 'SOP-5.1', ?, 0, ?, ?, 'PENDING')
+                """,
+                (attached_to, now, cust["customer_id"], cust["name"], summary, dmg, data_url),
+            )
+            cur.execute(
+                """
+                UPDATE inventory
+                SET damaged_quarantine = damaged_quarantine + ?, updated_at = ?
+                WHERE sku_code = ?
+                """,
+                (dmg, now, cust["sku_code"]),
+            )
+            cur.execute(
+                """
+                INSERT INTO insights (created_at, route, category, severity, title, detail)
+                VALUES (?, ?, 'DAMAGED_GOODS', 'HIGH', ?, ?)
+                """,
+                (
+                    now,
+                    cust["route"],
+                    f"Visual Damage Verified at {cust['name']} ({dmg} bags torn)",
+                    f"Field camera captured {dmg} torn {cust['sku_code']} bags at {cust['name']} ({cust['location']}). Routed to Priya Sharma under SOP-5.1.",
+                ),
+            )
             conn.commit()
         conn.close()
-    return {"stored": bool(data_url), "attached_to_approval": attached_to, "caption": caption}
+
+    return {
+        "stored": bool(data_url),
+        "attached_to_approval": attached_to,
+        "customer_id": cust["customer_id"] if cust else None,
+        "customer_name": cust["name"] if cust else resolved_name,
+        "invoice_id": cust["pending_invoice_id"] if cust else None,
+        "caption": caption,
+    }
 
 
 # Gemini Live API Function Declarations (JSON Schema format compatible with google-genai)
@@ -109,6 +176,32 @@ GEMINI_TOOL_DECLARATIONS: List[Dict[str, Any]] = [
                 },
             },
             {
+                "name": "log_damaged_bags_report",
+                "description": (
+                    "Log torn/damaged bags for a SPECIFIC store immediately (even before cash settlement is finalized). "
+                    "Moves damaged bags to quarantine, attaches any camera proof, and notifies Area Manager Priya under SOP-5.1. "
+                    "ALWAYS specify the exact store/customer_name."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "customer_name": {
+                            "type": "STRING",
+                            "description": "Exact store/shop name where torn bags occurred, e.g. 'Krishna Hardware', 'Shri Ganesh Stores', or 'Murugan Builders'",
+                        },
+                        "damaged_bags": {
+                            "type": "INTEGER",
+                            "description": "Exact number of torn/damaged bags",
+                        },
+                        "notes": {
+                            "type": "STRING",
+                            "description": "Details of the damage",
+                        },
+                    },
+                    "required": ["customer_name", "damaged_bags"],
+                },
+            },
+            {
                 "name": "request_human_handoff",
                 "description": (
                     "Escalate the live interaction to Area Manager Priya Sharma when there is a customer "
@@ -168,6 +261,7 @@ def execute_tool(
                 {"found": False, "message": f"No customer matched '{args.get('customer_name')}'."},
                 {"tool": name, "elapsed_ms": elapsed_ms, "status": "NOT_FOUND"},
             )
+        LATEST_VISUAL_PROOF["customer_name"] = cust["name"]
         return (
             {
                 "found": True,
@@ -193,14 +287,90 @@ def execute_tool(
             {"tool": name, "elapsed_ms": elapsed_ms, "status": "OK", "policies": policies},
         )
 
+    if name == "log_damaged_bags_report":
+        cust = find_customer(args.get("customer_name") or LATEST_VISUAL_PROOF.get("customer_name") or "")
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+        if not cust:
+            return (
+                {"success": False, "error": "Store name missing or not found. Ask the driver which shop had the torn bags."},
+                {"tool": name, "elapsed_ms": elapsed_ms, "status": "NEED_STORE_NAME"},
+            )
+        LATEST_VISUAL_PROOF["customer_name"] = cust["name"]
+        dmg = max(1, int(args.get("damaged_bags", 1) or 1))
+        notes = args.get("notes") or f"{dmg} torn/damaged bags reported at {cust['name']}"
+        now = _now_iso()
+        conn = get_conn()
+        cur = conn.cursor()
+
+        existing = cur.execute(
+            "SELECT approval_id FROM approvals WHERE status = 'PENDING' AND customer_id = ? ORDER BY created_at DESC LIMIT 1",
+            (cust["customer_id"],),
+        ).fetchone()
+        if existing:
+            approval_id = existing["approval_id"]
+            cur.execute(
+                "UPDATE approvals SET damaged_qty = ?, summary = ?, proof_image = COALESCE(proof_image, ?) WHERE approval_id = ?",
+                (dmg, f"{cust['name']} ({cust['pending_invoice_id']}): {notes}", LATEST_VISUAL_PROOF.get("data_url"), approval_id),
+            )
+        else:
+            approval_id = _short_id("APR")
+            cur.execute(
+                """
+                INSERT INTO approvals (
+                    approval_id, created_at, driver_name, customer_id, customer_name,
+                    entry_id, exception_type, policy_ref, summary, discount_requested,
+                    damaged_qty, proof_image, status
+                ) VALUES (?, ?, 'Raju Kumar', ?, ?, NULL, 'DAMAGED_GOODS', 'SOP-5.1', ?, 0, ?, ?, 'PENDING')
+                """,
+                (
+                    approval_id,
+                    now,
+                    cust["customer_id"],
+                    cust["name"],
+                    f"{cust['name']} ({cust['pending_invoice_id']}): {notes}",
+                    dmg,
+                    LATEST_VISUAL_PROOF.get("data_url"),
+                ),
+            )
+            cur.execute(
+                "UPDATE inventory SET damaged_quarantine = damaged_quarantine + ?, updated_at = ? WHERE sku_code = ?",
+                (dmg, now, cust["sku_code"]),
+            )
+            cur.execute(
+                """
+                INSERT INTO insights (created_at, route, category, severity, title, detail)
+                VALUES (?, ?, 'DAMAGED_GOODS', 'HIGH', ?, ?)
+                """,
+                (
+                    now,
+                    cust["route"],
+                    f"Damaged Bags Logged at {cust['name']} ({dmg} bags torn)",
+                    f"{dmg} torn {cust['sku_code']} bags logged at {cust['name']} ({cust['location']}). Escalated under SOP-5.1.",
+                ),
+            )
+        conn.commit()
+        conn.close()
+        result = {
+            "success": True,
+            "approval_id": approval_id,
+            "customer_id": cust["customer_id"],
+            "customer_name": cust["name"],
+            "invoice_id": cust["pending_invoice_id"],
+            "damaged_bags": dmg,
+            "policy_ref": "SOP-5.1",
+            "status": "LOGGED_AND_SENT_TO_PRIYA",
+        }
+        return result, {"tool": name, "elapsed_ms": elapsed_ms, "status": "ESCALATED", "result": result}
+
     if name == "record_delivery_and_update_ledger":
-        cust = find_customer(args.get("customer_name", "Krishna Hardware"))
+        cust = find_customer(args.get("customer_name") or LATEST_VISUAL_PROOF.get("customer_name") or "Krishna Hardware")
         if not cust:
             elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
             return (
                 {"success": False, "error": "Customer not found in ERP. Please confirm shop name."},
                 {"tool": name, "elapsed_ms": elapsed_ms, "status": "ERROR"},
             )
+        LATEST_VISUAL_PROOF["customer_name"] = cust["name"]
 
         delivered = int(args.get("delivered_bags", cust["expected_bags"]))
         damaged = int(args.get("damaged_bags", 0) or 0)
