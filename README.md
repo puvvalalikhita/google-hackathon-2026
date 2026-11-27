@@ -9,6 +9,7 @@
 - **🌐 Live Web App & Backend (Cloud Run):** https://deliverex-live-353183969363.asia-south1.run.app
 - **📡 Open-Source Live Ops Push Channel (`ntfy`):** https://ntfy.sh/rajubhai-ops-353183969363
 - **🩺 Health & Version Check:** https://deliverex-live-353183969363.asia-south1.run.app/api/health | https://deliverex-live-353183969363.asia-south1.run.app/api/app/version
+- **📊 Pitch Deck Presentation (PPTX):** [`Raju_Bhai_Pitch_Deck.pptx`](./Raju_Bhai_Pitch_Deck.pptx)
 - **🤖 Native Android Source (Kotlin + Jetpack Compose):** [`android-app/`](./android-app) (see [`android-app/PLAY_STORE_RELEASE_GUIDE.md`](./android-app/PLAY_STORE_RELEASE_GUIDE.md))
 
 ---

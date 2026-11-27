@@ -1413,7 +1413,7 @@ def db_decide_approval(
 
         receipt_id = _short_id("RCPT")
         msg = (
-            f"DeliverEx Official Receipt ({receipt_id}) ✅\n"
+            f"Raju Bhai Official Receipt ({receipt_id}) ✅\n"
             f"Shop: {cust['name']} | Invoice: {cust['pending_invoice_id']}\n"
             f"Delivered: {ledger['delivered_qty']} intact bags (Quarantined: {ledger['damaged_qty']})\n"
             f"Cash Received: Rs {ledger['cash_received']:,} | Approved Discount: Rs {discount:,}\n"
@@ -1433,11 +1433,25 @@ def db_decide_approval(
                 ledger["cash_received"],
                 discount,
                 new_balance,
-                "WHATSAPP_RECEIPT",
+                "OPS_RECEIPT",
                 msg,
             ),
         )
-        receipt_payload = {"receipt_id": receipt_id, "message": msg, "balance_remaining": new_balance}
+        receipt_payload = {
+            "receipt_id": receipt_id,
+            "created_at": now,
+            "driver_name": apr["driver_name"],
+            "customer_name": cust["name"],
+            "invoice_id": cust["pending_invoice_id"],
+            "delivered_qty": int(ledger["delivered_qty"]),
+            "damaged_qty": int(ledger["damaged_qty"]),
+            "cash_received": int(ledger["cash_received"]),
+            "discount_approved": int(discount),
+            "balance_remaining": int(new_balance),
+            "channel": "OPS_RECEIPT",
+            "message_text": msg,
+            "message": msg,
+        }
     elif decision == "REJECTED" and cust and ledger:
         cur.execute(
             "UPDATE ledger_entries SET tally_status = 'DISCOUNT_REJECTED_BALANCE_OPEN' WHERE entry_id = ?",
