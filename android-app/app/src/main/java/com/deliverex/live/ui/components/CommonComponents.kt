@@ -531,6 +531,84 @@ fun RoleSwitcherBar(
 }
 
 @Composable
+fun WorkerLogoBadge(
+    size: androidx.compose.ui.unit.Dp = 34.dp,
+    modifier: Modifier = Modifier
+) {
+    Image(
+        painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_worker_logo),
+        contentDescription = "Raju Bhai Worker Logo",
+        modifier = modifier.size(size).clip(RoundedCornerShape(10.dp))
+    )
+}
+
+@Composable
+fun AppUpdateBanner(
+    versionName: String,
+    releaseNotes: String,
+    downloadProgress: Int?,
+    onUpdateClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val pal = LocalDeliverExPalette.current
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = pal.primary.copy(alpha = 0.16f),
+        border = BorderStroke(1.dp, pal.primary.copy(alpha = 0.65f))
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text(
+                        "🚀 Raju Bhai v$versionName Update Ready",
+                        color = pal.primary,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 12.sp
+                    )
+                    if (releaseNotes.isNotBlank()) {
+                        Text(
+                            releaseNotes,
+                            color = Color(0xFFE2E8F0),
+                            fontSize = 11.sp,
+                            maxLines = 2
+                        )
+                    }
+                }
+                Button(
+                    onClick = onUpdateClick,
+                    enabled = downloadProgress == null,
+                    colors = ButtonDefaults.buttonColors(containerColor = pal.primary, contentColor = Color(0xFF070B14)),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = if (downloadProgress != null) "$downloadProgress%" else "Update Now",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+            if (downloadProgress != null) {
+                Spacer(Modifier.height(6.dp))
+                androidx.compose.material3.LinearProgressIndicator(
+                    progress = { (downloadProgress.coerceIn(0, 100)) / 100f },
+                    modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(4.dp)),
+                    color = pal.primary,
+                    trackColor = Color(0x33FFFFFF)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun OnboardingScreen(
     initialName: String,
     initialLanguage: String,
@@ -553,8 +631,16 @@ fun OnboardingScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Spacer(Modifier.height(12.dp))
-        Text("Namaste! 👋", color = pal.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-        Text("Welcome to DeliverEx Live", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            WorkerLogoBadge(size = 48.dp)
+            Column {
+                Text("Namaste! 👋", color = pal.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("Welcome to Raju Bhai", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
+            }
+        }
         Text(
             "Choose how you are using this phone today. You can switch anytime.",
             color = Color(0xFFCBD5E1),

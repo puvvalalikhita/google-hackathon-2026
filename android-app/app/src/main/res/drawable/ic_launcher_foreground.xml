@@ -3,26 +3,57 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Outer Gold Ring -->
+    <!-- Outer Gold Halo -->
     <path
         android:fillColor="#00000000"
-        android:pathData="M54,26a28,28 0,1 1,0 56a28,28 0,1 1,0 -56"
-        android:strokeWidth="3.5"
+        android:pathData="M54,20a34,34 0,1 1,0 68a34,34 0,1 1,0 -68"
+        android:strokeWidth="3"
         android:strokeColor="#FBBF24" />
-    <!-- Voice Waveform Bars + Truck Shield Silhouette -->
+    <!-- Worker Cap -->
     <path
-        android:fillColor="#10B981"
-        android:pathData="M36,50 L40,50 L40,58 L36,58 Z" />
-    <path
-        android:fillColor="#38BDF8"
-        android:pathData="M44,41 L48,41 L48,67 L44,67 Z" />
+        android:fillColor="#F59E0B"
+        android:pathData="M34,47 C34,36 43,29 54,29 C65,29 74,36 74,47 Z" />
     <path
         android:fillColor="#FBBF24"
-        android:pathData="M52,35 L56,35 L56,73 L52,73 Z" />
+        android:pathData="M30,45 L78,45 A3,3 0 0 1 78,51 L30,51 A3,3 0 0 1 30,45 Z" />
+    <path
+        android:fillColor="#FEF3C7"
+        android:pathData="M50,33 L58,33 L58,42 L50,42 Z" />
+    <!-- Friendly Face -->
+    <path
+        android:fillColor="#FDE68A"
+        android:pathData="M54,47 A11.5,11.5 0 1 1 53.99,47 Z" />
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M49.5,55 A1.8,1.8 0 1 1 49.49,55 Z" />
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M58.5,55 A1.8,1.8 0 1 1 58.49,55 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M49.5,62.5 C52,65 56,65 58.5,62.5"
+        android:strokeWidth="2.3"
+        android:strokeColor="#0F172A"
+        android:strokeLineCap="round" />
+    <!-- Voice Headset -->
     <path
         android:fillColor="#38BDF8"
-        android:pathData="M60,41 L64,41 L64,67 L60,67 Z" />
+        android:pathData="M39.5,53 L43.5,53 L43.5,62 L39.5,62 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M41.5,61 C43,66 46.5,67.5 50.5,67.5"
+        android:strokeWidth="2.2"
+        android:strokeColor="#38BDF8"
+        android:strokeLineCap="round" />
+    <!-- High-Vis Emerald Vest -->
     <path
         android:fillColor="#10B981"
-        android:pathData="M68,48 L72,48 L72,60 L68,60 Z" />
+        android:pathData="M34,84 C36.5,73 44,68.5 54,68.5 C64,68.5 71.5,73 74,84 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M48,70 L54,77.5 L60,70"
+        android:strokeWidth="2.8"
+        android:strokeColor="#FBBF24"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
 </vector>

@@ -88,6 +88,9 @@ data class DeliverExUiState(
     val onboardingCompleted: Boolean = false,
     val showDemoControls: Boolean = false,
     val micMuted: Boolean = false,
+    val availableUpdate: com.deliverex.live.update.AppUpdateInfo? = null,
+    val updateDownloadProgress: Int? = null,
+    val checkingUpdate: Boolean = false,
     val toastMessage: String? = null,
     val isRefreshing: Boolean = false
 )
@@ -124,7 +127,76 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
     private var openStreamRole: String? = null
 
     init {
+        com.deliverex.live.update.AppNotificationManager.ensureChannels(application)
+        com.deliverex.live.update.AppUpdateManager.schedulePeriodicUpdateCheck(application)
         refreshFromServer()
+        checkForAppUpdate(silent = true)
+    }
+
+    fun checkForAppUpdate(silent: Boolean = false) {
+        viewModelScope.launch {
+            if (!silent) _uiState.update { it.copy(checkingUpdate = true) }
+            val info = com.deliverex.live.update.AppUpdateManager.fetchLatestVersion(prefs.baseUrl)
+            if (info != null && com.deliverex.live.update.AppUpdateManager.isNewerVersion(info)) {
+                _uiState.update {
+                    it.copy(
+                        availableUpdate = info,
+                        checkingUpdate = false,
+                        toastMessage = if (!silent) "🚀 Raju Bhai v${info.latestVersionName} update is available!" else it.toastMessage
+                    )
+                }
+                val ctx = getApplication<Application>()
+                if (!silent || com.deliverex.live.update.AppUpdateManager.lastNotifiedVersion(ctx) < info.latestVersionCode) {
+                    com.deliverex.live.update.AppNotificationManager.notifyUpdateAvailable(
+                        context = ctx,
+                        versionName = info.latestVersionName,
+                        releaseNotes = info.releaseNotes,
+                        apkUrl = info.apkUrl
+                    )
+                    com.deliverex.live.update.AppUpdateManager.markVersionNotified(ctx, info.latestVersionCode)
+                }
+            } else {
+                _uiState.update {
+                    it.copy(
+                        availableUpdate = null,
+                        checkingUpdate = false,
+                        toastMessage = if (!silent) "✅ Raju Bhai v${com.deliverex.live.BuildConfig.VERSION_NAME} is up to date!" else it.toastMessage
+                    )
+                }
+            }
+        }
+    }
+
+    fun downloadAndInstallUpdate(apkUrlOverride: String? = null) {
+        val url = apkUrlOverride?.takeIf { it.isNotBlank() } ?: _uiState.value.availableUpdate?.apkUrl.orEmpty()
+        if (url.isBlank()) {
+            checkForAppUpdate(silent = false)
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(updateDownloadProgress = 1, toastMessage = "⬇️ Downloading Raju Bhai update...") }
+            val result = com.deliverex.live.update.AppUpdateManager.downloadAndInstallApk(
+                context = getApplication(),
+                apkUrl = url,
+                onProgress = { pct -> _uiState.update { it.copy(updateDownloadProgress = pct) } }
+            )
+            result.onSuccess {
+                _uiState.update { it.copy(updateDownloadProgress = null, toastMessage = "📦 Opening installer for Raju Bhai update...") }
+            }.onFailure { err ->
+                _uiState.update { it.copy(updateDownloadProgress = null, toastMessage = "Update download failed: ${err.message}") }
+            }
+        }
+    }
+
+    fun sendTestNotification() {
+        val ctx = getApplication<Application>()
+        com.deliverex.live.update.AppNotificationManager.notifyOpsAlert(
+            context = ctx,
+            title = "🔔 Raju Bhai Alerts Active",
+            message = "Push notifications & chime sound are working loud and clear!"
+        )
+        com.deliverex.live.update.AppNotificationManager.playInAppChime(ctx)
+        _uiState.update { it.copy(toastMessage = "🔔 Test notification & chime sound played!") }
     }
 
     fun refreshFromServer() {
@@ -596,6 +668,11 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
                         toastMessage = "👁️ Visual proof verified & attached to Priya's 1-Tap Approval!"
                     )
                 }
+                com.deliverex.live.update.AppNotificationManager.notifyOpsAlert(
+                    context = getApplication(),
+                    title = "📷 Photo Attached — $store",
+                    message = "Damaged bag proof ($damagedBags bags) sent to Priya for 1-tap approval."
+                )
                 appendTranscript("system", "📷 Visual proof attached for $store ($damagedBags torn bags).", true)
             }.onFailure { err ->
                 _uiState.update { it.copy(toastMessage = "Photo upload failed: ${err.message}") }
@@ -625,6 +702,11 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
                                 toastMessage = "Priya $decision ${res.approval.customerName}"
                             )
                         }
+                        com.deliverex.live.update.AppNotificationManager.notifyOpsAlert(
+                            context = getApplication(),
+                            title = if (decision == "APPROVED") "✅ Approved — ${res.approval.customerName}" else "📋 Approval $decision",
+                            message = if (res.receipt != null) "Official WhatsApp receipt is ready to share!" else "Priya updated approval for ${res.approval.customerName}."
+                        )
                         if (decision == "APPROVED") {
                             audioEngine.speakTts("Badhiya khabar Raju bhai! Priya ma'am ne ${res.approval.customerName} ka approval de diya hai aur WhatsApp receipt bhej di gayi hai.")
                         }

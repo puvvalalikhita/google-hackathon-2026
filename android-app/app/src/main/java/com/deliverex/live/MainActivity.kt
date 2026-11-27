@@ -59,6 +59,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.deliverex.live.ui.DeliverExViewModel
+import com.deliverex.live.ui.components.AppUpdateBanner
 import com.deliverex.live.ui.components.CameraCaptureDialog
 import com.deliverex.live.ui.components.ExportPreviewDialog
 import com.deliverex.live.ui.components.OnboardingScreen
@@ -67,6 +68,8 @@ import com.deliverex.live.ui.components.ProofLightboxDialog
 import com.deliverex.live.ui.components.RoleSwitcherBar
 import com.deliverex.live.ui.components.ServerAndPrivacyDialog
 import com.deliverex.live.ui.components.StatusPill
+import com.deliverex.live.ui.components.WorkerLogoBadge
+import com.deliverex.live.update.AppNotificationManager
 import com.deliverex.live.ui.screens.InsightsRoiScreen
 import com.deliverex.live.ui.screens.LiveCallScreen
 import com.deliverex.live.ui.screens.ManagerOpsScreen
@@ -75,21 +78,50 @@ import com.deliverex.live.ui.theme.DeliverExTheme
 import com.deliverex.live.ui.theme.LocalDeliverExPalette
 
 class MainActivity : ComponentActivity() {
+    private var triggerUpdateOnLaunch by mutableStateOf(false)
+    private var updateUrlFromNotif by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleUpdateIntent(intent)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         )
         setContent {
-            DeliverExRootApp()
+            DeliverExRootApp(
+                triggerUpdateOnLaunch = triggerUpdateOnLaunch,
+                updateUrlFromNotif = updateUrlFromNotif,
+                onConsumedUpdateIntent = {
+                    triggerUpdateOnLaunch = false
+                    updateUrlFromNotif = null
+                }
+            )
+        }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleUpdateIntent(intent)
+    }
+
+    private fun handleUpdateIntent(intent: android.content.Intent?) {
+        if (intent?.getBooleanExtra(AppNotificationManager.EXTRA_TRIGGER_UPDATE, false) == true) {
+            triggerUpdateOnLaunch = true
+            updateUrlFromNotif = intent.getStringExtra(AppNotificationManager.EXTRA_UPDATE_APK_URL)
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DeliverExRootApp(vm: DeliverExViewModel = viewModel()) {
+fun DeliverExRootApp(
+    vm: DeliverExViewModel = viewModel(),
+    triggerUpdateOnLaunch: Boolean = false,
+    updateUrlFromNotif: String? = null,
+    onConsumedUpdateIntent: () -> Unit = {}
+) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -145,6 +177,25 @@ fun DeliverExRootApp(vm: DeliverExViewModel = viewModel()) {
         }
     }
 
+    val notifPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ -> }
+
+    LaunchedEffect(state.onboardingCompleted) {
+        if (state.onboardingCompleted && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (!AppNotificationManager.hasNotificationPermission(context)) {
+                notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
+    LaunchedEffect(triggerUpdateOnLaunch) {
+        if (triggerUpdateOnLaunch) {
+            vm.downloadAndInstallUpdate(updateUrlFromNotif)
+            onConsumedUpdateIntent()
+        }
+    }
+
     LaunchedEffect(state.toastMessage) {
         val msg = state.toastMessage
         if (!msg.isNullOrBlank()) {
@@ -188,7 +239,9 @@ fun DeliverExRootApp(vm: DeliverExViewModel = viewModel()) {
                             title = {
                                 Column {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("DeliverEx Live", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+                                        WorkerLogoBadge(size = 32.dp)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Raju Bhai", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
                                         Spacer(Modifier.width(8.dp))
                                         StatusPill(
                                             text = when {
@@ -258,6 +311,14 @@ fun DeliverExRootApp(vm: DeliverExViewModel = viewModel()) {
                                 if (role == "MANAGER") selectedTab = 2 else if (role == "DRIVER") selectedTab = 0
                             }
                         )
+                        state.availableUpdate?.let { upd ->
+                            AppUpdateBanner(
+                                versionName = upd.latestVersionName,
+                                releaseNotes = upd.releaseNotes,
+                                downloadProgress = state.updateDownloadProgress,
+                                onUpdateClick = { vm.downloadAndInstallUpdate() }
+                            )
+                        }
                         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                             when (selectedTab) {
                                 0 -> LiveCallScreen(
@@ -298,7 +359,9 @@ fun DeliverExRootApp(vm: DeliverExViewModel = viewModel()) {
                                     state = state,
                                     onUpdateDailyCalls = { vm.updateRoi(it) },
                                     onResetDemo = { vm.resetDemo() },
-                                    onOpenSettings = { showSettings = true }
+                                    onOpenSettings = { showSettings = true },
+                                    onCheckUpdate = { vm.checkForAppUpdate(silent = false) },
+                                    onTestNotification = { vm.sendTestNotification() }
                                 )
                             }
                         }

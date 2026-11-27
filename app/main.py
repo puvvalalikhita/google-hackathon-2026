@@ -59,7 +59,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="DeliverEx Live — Real-Time Gemini Voice & WhatsApp Field Ops",
+    title="Raju Bhai — Real-Time Gemini Voice & WhatsApp Field Ops",
     version="2.0.0",
     lifespan=lifespan,
 )
@@ -148,6 +148,25 @@ async def health():
         "gcs_bucket": get_gcs_bucket_name() or None,
         "manager_auth_enforced": is_manager_auth_enforced(),
         "audit_chain_verified": audit_info.get("chain_verified", True),
+    }
+
+
+@app.get("/api/app/version")
+async def api_app_version():
+    """Returns the latest Android APK metadata so installed Raju Bhai apps can notify & self-update."""
+    return {
+        "app_name": "Raju Bhai",
+        "latest_version_code": int(os.getenv("ANDROID_LATEST_VERSION_CODE", "3")),
+        "latest_version_name": os.getenv("ANDROID_LATEST_VERSION_NAME", "1.2.0").strip(),
+        "apk_url": os.getenv(
+            "ANDROID_APK_URL",
+            "https://storage.googleapis.com/deliverex-downloads-353183969363/Raju-Bhai-v1.2.0.apk",
+        ).strip(),
+        "release_notes": os.getenv(
+            "ANDROID_RELEASE_NOTES",
+            "Rebranded to Raju Bhai with worker logo, push update notifications, and rich chime alerts.",
+        ).strip(),
+        "force_update": os.getenv("ANDROID_FORCE_UPDATE", "false").strip().lower() in {"true", "1", "yes"},
     }
 
 

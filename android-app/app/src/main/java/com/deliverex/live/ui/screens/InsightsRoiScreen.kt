@@ -47,7 +47,9 @@ fun InsightsRoiScreen(
     state: DeliverExUiState,
     onUpdateDailyCalls: (Int) -> Unit,
     onResetDemo: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onCheckUpdate: () -> Unit,
+    onTestNotification: () -> Unit
 ) {
     val pal = LocalDeliverExPalette.current
 
@@ -108,7 +110,7 @@ fun InsightsRoiScreen(
                         Text("₹30.00 / call", color = pal.danger, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                     Column {
-                        Text("DeliverEx AI", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                        Text("Raju Bhai AI", color = Color(0xFF94A3B8), fontSize = 10.sp)
                         Text("₹2.20 / call", color = pal.cyan, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                     Column(horizontalAlignment = Alignment.End) {
@@ -243,6 +245,26 @@ fun InsightsRoiScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    OutlinedButton(
+                        onClick = onCheckUpdate,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(if (state.checkingUpdate) "Checking..." else "🔄 Check Update", color = pal.cyan, fontSize = 12.sp)
+                    }
+                    OutlinedButton(
+                        onClick = onTestNotification,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("🔔 Test Sound", color = pal.primary, fontSize = 12.sp)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Button(
                         onClick = onOpenSettings,
                         modifier = Modifier.weight(1f),
@@ -263,6 +285,12 @@ fun InsightsRoiScreen(
                         Text("Reset Demo", fontSize = 12.sp)
                     }
                 }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Raju Bhai v${com.deliverex.live.BuildConfig.VERSION_NAME} • Auto-Update Notifications Enabled",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 10.sp
+                )
             }
         }
     }

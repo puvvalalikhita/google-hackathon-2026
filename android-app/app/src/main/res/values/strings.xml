@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">DeliverEx Live</string>
+    <string name="app_name">Raju Bhai</string>
     <string name="privacy_policy_title">Privacy &amp; Data Safety</string>
-    <string name="privacy_policy_summary">DeliverEx Live processes microphone audio and proof-of-delivery photos only when you start a Live Call, record a WhatsApp Voice Note, or capture a Damage Proof photo. Media is sent exclusively to your configured DeliverEx Ops backend and is never sold or shared for advertising.</string>
+    <string name="privacy_policy_summary">Raju Bhai processes microphone audio and proof-of-delivery photos only when you start a Live Call, record a WhatsApp Voice Note, or capture a Damage Proof photo. Media is sent exclusively to your configured Raju Bhai Ops backend and is never sold or shared for advertising.</string>
 </resources>
