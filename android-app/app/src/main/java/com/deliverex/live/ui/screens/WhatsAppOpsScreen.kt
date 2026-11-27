@@ -110,15 +110,15 @@ fun WhatsAppOpsScreen(
             ) {
                 Column {
                     Text(
-                        "WHATSAPP OPS ASSISTANT",
+                        "RAJU BHAI OPS CHAT (NTFY)",
                         color = pal.success,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
                     Text(
-                        "Official Ops (+91-80-DELIVEREX)",
+                        "Open-Source Messaging • No WhatsApp Needed",
                         color = Color.White,
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -210,7 +210,7 @@ fun WhatsAppOpsScreen(
             OutlinedTextField(
                 value = inputText,
                 onValueChange = { inputText = it },
-                placeholder = { Text("WhatsApp message in Hinglish / English...", fontSize = 13.sp) },
+                placeholder = { Text("Type delivery update or ledger note...", fontSize = 13.sp) },
                 modifier = Modifier.weight(1f),
                 singleLine = true
             )

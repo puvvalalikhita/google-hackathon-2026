@@ -70,12 +70,16 @@ class LiveCallWebSocketClient(
 
     fun connect(
         baseUrl: String,
+        driverName: String = "Raju Kumar",
+        preferredLanguage: String = "Hinglish",
         onEvent: (LiveWsEvent) -> Unit
     ) {
         disconnect()
+        val encName = java.net.URLEncoder.encode(driverName.ifBlank { "Raju Kumar" }, "UTF-8")
+        val encLang = java.net.URLEncoder.encode(preferredLanguage.ifBlank { "Hinglish" }, "UTF-8")
         val wsUrl = baseUrl.trimEnd('/')
             .replaceFirst("https://", "wss://")
-            .replaceFirst("http://", "ws://") + "/ws/live-call"
+            .replaceFirst("http://", "ws://") + "/ws/live-call?driver_name=$encName&lang=$encLang"
 
         val request = Request.Builder().url(wsUrl).build()
         webSocket = httpClient.newWebSocket(request, object : WebSocketListener() {

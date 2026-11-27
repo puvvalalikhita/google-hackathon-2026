@@ -62,8 +62,16 @@ ACTIVE_SESSIONS = ActiveSessionRegistry()
 
 
 class LiveBridgeSession:
-    def __init__(self, websocket: WebSocket) -> None:
+    def __init__(
+        self,
+        websocket: WebSocket,
+        driver_name: str = "Raju Kumar",
+        preferred_language: str = "Hinglish",
+    ) -> None:
         self.ws = websocket
+        self.driver_name = (driver_name or "Raju Kumar").strip()
+        self.driver_first_name = self.driver_name.split()[0] if self.driver_name else "Dost"
+        self.preferred_language = (preferred_language or "Hinglish").strip()
         self.gemini_session: Any = None
         self.last_user_audio_ts: Optional[float] = None
         self.awaiting_first_audio: bool = False
@@ -101,19 +109,19 @@ class LiveBridgeSession:
                 prompt = (
                     f"[SYSTEM UPDATE FROM AREA MANAGER PRIYA SHARMA]: Priya has APPROVED the exception for "
                     f"{apr['customer_name']} (Rs {apr['discount_requested']} discount, {apr['damaged_qty']} damaged bags). "
-                    f"Tally/SAP invoice is now SETTLED and official WhatsApp Receipt {receipt['receipt_id'] if receipt else ''} "
-                    f"has been sent. Immediately inform Raju in upbeat, natural Hinglish!"
+                    f"Tally/SAP invoice is now SETTLED and official Receipt {receipt['receipt_id'] if receipt else ''} "
+                    f"has been sent. Immediately inform {self.driver_first_name} in upbeat, natural {self.preferred_language}!"
                 )
             elif decision == "REJECTED":
                 prompt = (
                     f"[SYSTEM UPDATE FROM AREA MANAGER PRIYA SHARMA]: Priya has REJECTED the Rs {apr['discount_requested']} "
-                    f"extra discount for {apr['customer_name']}. Inform Raju politely in Hinglish that the extra discount "
+                    f"extra discount for {apr['customer_name']}. Inform {self.driver_first_name} politely in {self.preferred_language} that the extra discount "
                     f"was not approved and the remaining balance stays open on the customer's credit ledger."
                 )
             else:
                 prompt = (
                     f"[SYSTEM UPDATE]: Area Manager Priya Sharma is joining/taking over the call for {apr['customer_name']}. "
-                    f"Inform Raju in Hinglish that you are connecting him directly to Priya ma'am now."
+                    f"Inform {self.driver_first_name} in {self.preferred_language} that you are connecting him directly to Priya ma'am now."
                 )
 
             try:
@@ -284,7 +292,7 @@ class LiveBridgeSession:
                             {
                                 "type": "workflow_reply",
                                 "text": (
-                                    f"Haan Raju bhai, camera photo mein {store_name} ke {dmg} torn cement bags clear dikh rahe hain! "
+                                    f"Haan {self.driver_first_name} ji, camera photo mein {store_name} ke {dmg} torn cement bags clear dikh rahe hain! "
                                     f"Maine yeh visual proof seedha {store_name} ke naam se Priya ma'am ke approval card par attach kar diya hai."
                                 ),
                                 "intent": "VISUAL_DAMAGE_VERIFIED",
@@ -336,9 +344,16 @@ class LiveBridgeSession:
             ]
         candidate_models = list(dict.fromkeys([m for m in candidate_models if m]))
 
+        personalized_instruction = (
+            SYSTEM_INSTRUCTION
+            + f"\n\nCURRENT WORKER CONTEXT:\n"
+            + f"- The logged-in delivery worker's name is '{self.driver_name}'. ALWAYS address them as '{self.driver_first_name}' (NEVER call them 'Raju' or 'Raju bhai' unless their name actually is Raju!).\n"
+            + f"- Preferred language: {self.preferred_language}. Start in {self.preferred_language} and adapt immediately if they speak another language.\n"
+        )
+
         config: Dict[str, Any] = {
             "response_modalities": ["AUDIO"],
-            "system_instruction": SYSTEM_INSTRUCTION,
+            "system_instruction": personalized_instruction,
             "tools": GEMINI_TOOL_DECLARATIONS,
             "speech_config": {
                 "voice_config": {
@@ -396,7 +411,11 @@ class LiveBridgeSession:
                         self.last_user_audio_ts = time.perf_counter()
                         self.awaiting_first_audio = True
                         await session.send_realtime_input(
-                            text="[CALL CONNECTED]: Driver Raju just started the call. Greet him in 1 short friendly Hinglish sentence: 'Namaste Raju bhai, DeliverEx Live bol raha hoon — bataiye kis shop pe delivery hui?'"
+                            text=(
+                                f"[CALL CONNECTED]: Worker '{self.driver_name}' just started the call. "
+                                f"Greet {self.driver_first_name} warmly by their name '{self.driver_first_name}' (do NOT say Raju unless their name is Raju) "
+                                f"in 1 short friendly {self.preferred_language} sentence: e.g., 'Namaste {self.driver_first_name} ji, bataiye kis shop pe delivery hui?'"
+                            )
                         )
 
                         done, pending = await asyncio.wait(

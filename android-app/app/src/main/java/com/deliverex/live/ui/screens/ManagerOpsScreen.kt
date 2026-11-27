@@ -55,7 +55,9 @@ fun ManagerOpsScreen(
     onSelectStore: (String) -> Unit,
     onUnlockOwner: () -> Unit,
     onExportTallyXml: () -> Unit,
-    onExportLedgerCsv: () -> Unit
+    onExportLedgerCsv: () -> Unit,
+    onPushLedgerToOps: () -> Unit,
+    onPushReceiptToOps: (title: String, message: String) -> Unit
 ) {
     val pal = LocalDeliverExPalette.current
     val context = LocalContext.current
@@ -98,7 +100,7 @@ fun ManagerOpsScreen(
             }
         }
 
-        // 2. Latest Official Receipt with 1-Tap WhatsApp Share
+        // 2. Latest Official Receipt with 1-Tap Open-Source Ops Push (ntfy) + Share
         state.latestReceipt?.let { rcpt ->
             item {
                 GlassCard(borderColor = pal.success.copy(alpha = 0.55f), backgroundColor = Color(0xCC06281F)) {
@@ -107,19 +109,36 @@ fun ManagerOpsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("OFFICIAL WHATSAPP RECEIPT", color = pal.success, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("OFFICIAL OPS RECEIPT", color = pal.success, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                         StatusPill(rcpt.receiptId, pal.success)
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(rcpt.messageText, color = Color(0xFFECFDF5), fontSize = 12.sp, lineHeight = 17.sp)
                     Spacer(Modifier.height(10.dp))
-                    Button(
-                        onClick = { shareTextToWhatsApp(context, rcpt.messageText) },
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = pal.success, contentColor = Color(0xFF070B14)),
-                        shape = RoundedCornerShape(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("📲 Share Receipt on WhatsApp", fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                        Button(
+                            onClick = { onPushReceiptToOps("🧾 Receipt ${rcpt.receiptId}", rcpt.messageText) },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = pal.success, contentColor = Color(0xFF070B14)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("📡 Send via Ops Push", fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                val sendIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(android.content.Intent.EXTRA_TEXT, rcpt.messageText)
+                                }
+                                context.startActivity(android.content.Intent.createChooser(sendIntent, "Share Receipt"))
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("📤 Share", fontSize = 12.sp)
+                        }
                     }
                 }
             }
@@ -247,14 +266,22 @@ fun ManagerOpsScreen(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Surface(
+                            onClick = onPushLedgerToOps,
+                            shape = RoundedCornerShape(50),
+                            color = pal.success.copy(alpha = 0.18f),
+                            border = BorderStroke(1.dp, pal.success.copy(alpha = 0.5f))
+                        ) {
+                            Text("📡 Push", color = pal.success, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                        }
                         Surface(
                             onClick = onExportTallyXml,
                             shape = RoundedCornerShape(50),
                             color = pal.cyan.copy(alpha = 0.18f),
                             border = BorderStroke(1.dp, pal.cyan.copy(alpha = 0.45f))
                         ) {
-                            Text("📥 Export to Tally", color = pal.cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                            Text("📥 Tally", color = pal.cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                         }
                         Surface(
                             onClick = onExportLedgerCsv,

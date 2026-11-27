@@ -34,6 +34,7 @@ from app.security import (
     require_owner_session,
     verify_token,
 )
+from app.ntfy_bridge import get_ntfy_config, publish_ntfy_message
 from app.storage_gcp import get_gcs_bucket_name, read_proof_from_gcs
 from app.tally_export import build_ledger_csv, build_tally_prime_xml
 from app.tools import decide_approval, execute_tool, set_latest_visual_proof
@@ -153,20 +154,23 @@ async def health():
 
 @app.get("/api/app/version")
 async def api_app_version():
-    """Returns the latest Android APK metadata so installed Raju Bhai apps can notify & self-update."""
+    """Returns the latest Android APK metadata + open-source ntfy channel so Raju Bhai apps notify & self-update."""
+    ntfy = get_ntfy_config()
     return {
         "app_name": "Raju Bhai",
-        "latest_version_code": int(os.getenv("ANDROID_LATEST_VERSION_CODE", "5")),
-        "latest_version_name": os.getenv("ANDROID_LATEST_VERSION_NAME", "1.4.0").strip(),
+        "latest_version_code": int(os.getenv("ANDROID_LATEST_VERSION_CODE", "6")),
+        "latest_version_name": os.getenv("ANDROID_LATEST_VERSION_NAME", "1.5.0").strip(),
         "apk_url": os.getenv(
             "ANDROID_APK_URL",
-            "https://storage.googleapis.com/deliverex-downloads-353183969363/Raju-Bhai-v1.4.0.apk",
+            "https://storage.googleapis.com/deliverex-downloads-353183969363/Raju-Bhai-v1.5.0.apk",
         ).strip(),
         "release_notes": os.getenv(
             "ANDROID_RELEASE_NOTES",
-            "Fixed CSV/XML download UI with direct Save to Downloads, masked PIN & lockout protection for Priya login, and instant update check on app resume.",
+            "Replaced WhatsApp with open-source ntfy Ops Chat (github.com/binwiederhier/ntfy), 1-tap Ledger & Receipt push dispatch, and real-time push update notifications.",
         ).strip(),
         "force_update": os.getenv("ANDROID_FORCE_UPDATE", "false").strip().lower() in {"true", "1", "yes"},
+        "ntfy_topic": ntfy["topic"],
+        "ntfy_topic_url": ntfy["topic_url"],
     }
 
 
@@ -357,6 +361,14 @@ async def api_proof_photo(body: ProofPhotoBody):
         driver_name=body.driver_name,
     )
     await ACTIVE_SESSIONS.broadcast_erp_state()
+    asyncio.create_task(
+        publish_ntfy_message(
+            title=f"📷 Torn Bags Photo — {info.get('customer_name') or body.customer_name or 'Shop'}",
+            message=f"{body.driver_name} uploaded photo proof ({body.damaged_bags} damaged bags). Open Raju Bhai Manager Portal to approve.",
+            tags=["camera", "raju-ops"],
+            priority="high",
+        )
+    )
     return {"proof": info, "state": get_full_state()}
 
 
@@ -378,8 +390,19 @@ async def api_decide_approval(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    # Optional real WhatsApp receipt push if Meta Cloud API credentials are present
+    # Dispatch official receipt & decision via open-source ntfy (WhatsApp alternative)
     receipt = res.get("receipt")
+    apr = res.get("approval") or {}
+    asyncio.create_task(
+        publish_ntfy_message(
+            title=f"✅ Approval {body.decision} — {apr.get('customer_name', 'Shop')}",
+            message=receipt["message"] if receipt else f"Priya {body.decision} request {approval_id} for {apr.get('customer_name', 'Shop')}.",
+            tags=["white_check_mark", "raju-receipt"],
+            priority="high",
+        )
+    )
+
+    # Optional real WhatsApp receipt push if Meta Cloud API credentials are present
     if receipt and os.getenv("WHATSAPP_ACCESS_TOKEN", "").strip():
         manager_or_driver_phone = os.getenv("MANAGER_WHATSAPP_NUMBER", "").strip()
         if manager_or_driver_phone:
@@ -388,6 +411,67 @@ async def api_decide_approval(
     # Push live approval into Raju's active Gemini Live voice call!
     await ACTIVE_SESSIONS.notify_manager_decision(res)
     return res
+
+
+class OpsPushBody(BaseModel):
+    title: str = "Raju Bhai Ops Update"
+    message: str = ""
+    tags: Optional[List[str]] = None
+
+
+@app.post("/api/ops/push-ledger")
+async def api_ops_push_ledger():
+    """Dispatches the current Account Book / Tally Ledger summary via open-source ntfy."""
+    state = get_full_state()
+    entries = state.get("ledger", [])
+    total_cash = sum(int(e.get("cash_received") or 0) for e in entries)
+    total_ok = sum(int(e.get("delivered_qty") or 0) for e in entries)
+    total_dmg = sum(int(e.get("damaged_qty") or 0) for e in entries)
+    lines = [
+        f"📒 Raju Bhai Live Ledger Summary ({len(entries)} entries)",
+        f"Cash Collected: Rs {total_cash:,} | Delivered: {total_ok} ok, {total_dmg} dmg",
+        "--- Recent Entries ---",
+    ]
+    for e in entries[:8]:
+        lines.append(
+            f"• {e.get('customer_name')} ({e.get('invoice_id')}): {e.get('delivered_qty')} bags, Rs {int(e.get('cash_received') or 0):,} [{e.get('tally_status')}]"
+        )
+    summary_text = "\n".join(lines)
+    ntfy_res = await publish_ntfy_message(
+        title=f"📒 Raju Bhai Ledger ({len(entries)} entries • Rs {total_cash:,})",
+        message=summary_text,
+        tags=["ledger", "raju-ledger"],
+        priority="high",
+    )
+    return {"ok": ntfy_res.get("ok", False), "ntfy": ntfy_res, "summary": summary_text}
+
+
+@app.post("/api/ops/push-receipt")
+async def api_ops_push_receipt(body: OpsPushBody):
+    """Dispatches a receipt or custom ops message via open-source ntfy."""
+    if not body.message.strip():
+        raise HTTPException(status_code=400, detail="message is required")
+    ntfy_res = await publish_ntfy_message(
+        title=body.title or "🧾 Raju Bhai Official Receipt",
+        message=body.message.strip(),
+        tags=body.tags or ["receipt", "raju-receipt"],
+        priority="high",
+    )
+    return {"ok": ntfy_res.get("ok", False), "ntfy": ntfy_res}
+
+
+@app.post("/api/ops/push-update")
+async def api_ops_push_update():
+    """Broadcasts a direct app update push notification to all Raju Bhai phones via ntfy."""
+    ver = await api_app_version()
+    ntfy_res = await publish_ntfy_message(
+        title=f"🚀 Raju Bhai v{ver['latest_version_name']} Update Ready",
+        message=f"{ver['release_notes']}\nTap to download & install directly.",
+        tags=["rocket", "raju-update"],
+        priority="urgent",
+        click_url=ver["apk_url"],
+    )
+    return {"ok": ntfy_res.get("ok", False), "version": ver, "ntfy": ntfy_res}
 
 
 @app.get("/api/whatsapp/messages")
@@ -556,6 +640,10 @@ async def receive_whatsapp_webhook(
 
 
 @app.websocket("/ws/live-call")
-async def ws_live_call(websocket: WebSocket):
-    bridge = LiveBridgeSession(websocket)
+async def ws_live_call(
+    websocket: WebSocket,
+    driver_name: str = Query(default="Raju Kumar"),
+    lang: str = Query(default="Hinglish"),
+):
+    bridge = LiveBridgeSession(websocket, driver_name=driver_name, preferred_language=lang)
     await bridge.run()

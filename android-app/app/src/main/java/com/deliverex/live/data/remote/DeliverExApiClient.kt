@@ -287,4 +287,28 @@ class DeliverExApiClient(
             json.parseToJsonElement(body).jsonObject
         }
     }
+
+    suspend fun pushLedgerToOps(): Boolean = withContext(Dispatchers.IO) {
+        val req = Request.Builder()
+            .url(url("/api/ops/push-ledger"))
+            .post("{}".toRequestBody(jsonMedia))
+            .build()
+        httpClient.newCall(req).execute().use { resp ->
+            resp.isSuccessful
+        }
+    }
+
+    suspend fun pushReceiptToOps(title: String, message: String): Boolean = withContext(Dispatchers.IO) {
+        val payload = buildJsonObject {
+            put("title", title)
+            put("message", message)
+        }.toString()
+        val req = Request.Builder()
+            .url(url("/api/ops/push-receipt"))
+            .post(payload.toRequestBody(jsonMedia))
+            .build()
+        httpClient.newCall(req).execute().use { resp ->
+            resp.isSuccessful
+        }
+    }
 }

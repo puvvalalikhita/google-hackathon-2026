@@ -131,8 +131,54 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
     init {
         com.deliverex.live.update.AppNotificationManager.ensureChannels(application)
         com.deliverex.live.update.AppUpdateManager.schedulePeriodicUpdateCheck(application)
+        com.deliverex.live.update.NtfyStreamListener.start(
+            context = application,
+            onUpdatePush = { checkForAppUpdate(silent = false) }
+        )
         refreshFromServer()
         checkForAppUpdate(silent = true)
+    }
+
+    fun pushLedgerToOps() {
+        viewModelScope.launch {
+            if (_uiState.value.backendConnected && !prefs.offlineDemoMode) {
+                runCatching { apiClient.pushLedgerToOps() }
+                    .onSuccess { ok ->
+                        if (ok) {
+                            com.deliverex.live.update.AppNotificationManager.playInAppChime(getApplication())
+                            _uiState.update { it.copy(toastMessage = "📡 Ledger pushed to Raju Bhai Ops channel (ntfy)!") }
+                        } else {
+                            _uiState.update { it.copy(toastMessage = "Could not push ledger to ntfy channel") }
+                        }
+                    }
+                    .onFailure { err ->
+                        _uiState.update { it.copy(toastMessage = "Ledger push error: ${err.message}") }
+                    }
+            } else {
+                _uiState.update { it.copy(toastMessage = "Connect to server to push live ledger via ntfy") }
+            }
+        }
+    }
+
+    fun pushReceiptToOps(title: String, message: String) {
+        viewModelScope.launch {
+            if (_uiState.value.backendConnected && !prefs.offlineDemoMode) {
+                runCatching { apiClient.pushReceiptToOps(title, message) }
+                    .onSuccess { ok ->
+                        if (ok) {
+                            com.deliverex.live.update.AppNotificationManager.playInAppChime(getApplication())
+                            _uiState.update { it.copy(toastMessage = "📡 Receipt sent via Raju Bhai Ops Push (ntfy)!") }
+                        } else {
+                            _uiState.update { it.copy(toastMessage = "Could not send receipt via ntfy") }
+                        }
+                    }
+                    .onFailure { err ->
+                        _uiState.update { it.copy(toastMessage = "Receipt push error: ${err.message}") }
+                    }
+            } else {
+                _uiState.update { it.copy(toastMessage = "Connect to server to send receipt via ntfy") }
+            }
+        }
     }
 
     fun checkForAppUpdate(silent: Boolean = false) {
@@ -327,7 +373,11 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
         }
 
         if (_uiState.value.backendConnected && !prefs.offlineDemoMode) {
-            wsClient.connect(_uiState.value.baseUrl) { event ->
+            wsClient.connect(
+                baseUrl = _uiState.value.baseUrl,
+                driverName = _uiState.value.driverName,
+                preferredLanguage = _uiState.value.preferredLanguage
+            ) { event ->
                 viewModelScope.launch { handleWsEvent(event, hasMicPermission) }
             }
         } else {

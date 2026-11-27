@@ -344,7 +344,7 @@ fun DeliverExRootApp(
                                     selected = selectedTab == 1,
                                     onClick = { selectedTab = 1 },
                                     icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null) },
-                                    label = { Text("WhatsApp", fontSize = 11.sp) }
+                                    label = { Text("Ops Chat", fontSize = 11.sp) }
                                 )
                             }
                             if (state.userRole == "MANAGER" || state.userRole == "DEMO") {
@@ -419,7 +419,9 @@ fun DeliverExRootApp(
                                     },
                                     onUnlockOwner = { vm.promptOwnerLogin() },
                                     onExportTallyXml = { vm.exportTallyXml() },
-                                    onExportLedgerCsv = { vm.exportLedgerCsv() }
+                                    onExportLedgerCsv = { vm.exportLedgerCsv() },
+                                    onPushLedgerToOps = { vm.pushLedgerToOps() },
+                                    onPushReceiptToOps = { title, msg -> vm.pushReceiptToOps(title, msg) }
                                 )
                                 3 -> InsightsRoiScreen(
                                     state = state,
