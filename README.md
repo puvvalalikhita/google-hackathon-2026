@@ -1,12 +1,15 @@
-# DeliverEx Live — Real-Time Gemini Live Voice Agent & WhatsApp Field Ops
+# Raju Bhai — Real-Time Gemini Voice & Open-Source Ops Field Assistant
 
-> **Google Hackathon Prototype** — Real-time native voice-to-voice Customer & Frontline Ops Agent for Indian MSME logistics, combining **Gemini Live API** (sub-second Hinglish/Indic voice + mid-sentence barge-in) with **WhatsApp Voice Notes**, **Tally/SAP ERP auto-sync**, and **1-Tap Manager Approval (Human-in-the-Loop)**.
+> **📱 Download the Android App (Raju Bhai v1.5.0 — Signed APK, Ready for Any Android Phone):**
+> **[⬇️ Download Raju-Bhai-v1.5.0.apk](https://storage.googleapis.com/deliverex-downloads-353183969363/Raju-Bhai-v1.5.0.apk)**
+> *Open the link on your Android phone → tap **Download** → tap the `.apk` file → **Install** (allow "Install unknown apps" once). Future updates arrive automatically inside the app as push notifications.*
 
-### Live Production Server & Android App
-- **Live Web App & Backend (Cloud Run):** https://deliverex-live-353183969363.asia-south1.run.app
-- **Health & Go-Live Check:** https://deliverex-live-353183969363.asia-south1.run.app/api/health
-- **Android APK Direct Download (Raju Bhai v1.5.0, Signed):** https://storage.googleapis.com/deliverex-downloads-353183969363/Raju-Bhai-v1.5.0.apk
-- **Native Android App (Kotlin + Jetpack Compose, Play Store-ready):** [`android-app/`](./android-app) (see [`android-app/PLAY_STORE_RELEASE_GUIDE.md`](./android-app/PLAY_STORE_RELEASE_GUIDE.md))
+### Live Links
+- **📱 Android App Direct Download (v1.5.0, Signed APK):** https://storage.googleapis.com/deliverex-downloads-353183969363/Raju-Bhai-v1.5.0.apk
+- **🌐 Live Web App & Backend (Cloud Run):** https://deliverex-live-353183969363.asia-south1.run.app
+- **📡 Open-Source Live Ops Push Channel (`ntfy`):** https://ntfy.sh/rajubhai-ops-353183969363
+- **🩺 Health & Version Check:** https://deliverex-live-353183969363.asia-south1.run.app/api/health | https://deliverex-live-353183969363.asia-south1.run.app/api/app/version
+- **🤖 Native Android Source (Kotlin + Jetpack Compose):** [`android-app/`](./android-app) (see [`android-app/PLAY_STORE_RELEASE_GUIDE.md`](./android-app/PLAY_STORE_RELEASE_GUIDE.md))
 
 ---
 
