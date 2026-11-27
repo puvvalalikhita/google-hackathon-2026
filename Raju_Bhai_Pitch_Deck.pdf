@@ -1,0 +1,321 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [6 0 R 8 0 R 10 0 R 12 0 R 14 0 R 16 0 R 18 0 R] /Count 7 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 2982 >>
+stream
+0.027 0.043 0.078 rg 0.0 0.0 792.0 446.0 re f
+0.984 0.749 0.141 rg 0.0 441.0 792.0 5.0 re f
+BT /F2 10 Tf 0.220 0.741 0.973 rg 1 0 0 1 42.0 384.0 Tm (GOOGLE HACKATHON 2026  |  ROUND 2 PROTOTYPE SUBMISSION) Tj ET
+BT /F2 40 Tf 0.984 0.749 0.141 rg 1 0 0 1 42.0 331.0 Tm (Raju Bhai) Tj ET
+BT /F2 16 Tf 1.000 1.000 1.000 rg 1 0 0 1 42.0 300.0 Tm (Real-Time Multilingual Voice, Vision & Open-Source Field Ops Assistant) Tj ET
+BT /F1 12 Tf 0.796 0.835 0.882 rg 1 0 0 1 42.0 278.0 Tm (Built for Indian MSME Wholesale Distributors, Area Managers & Delivery Drivers) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.063 0.725 0.506 RG 42.0 51.0 224.0 195.0 re B
+BT /F2 11.5 Tf 0.063 0.725 0.506 rg 1 0 0 1 54.0 228.0 Tm (1. Multilingual Live Voice) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 54.0 213.0 Tm (- Hinglish, Hindi, Telugu, Tanglish &) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 54.0 200.6 Tm (  English.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 54.0 185.7 Tm (- Sub-second Gemini Live audio with mid-) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 54.0 173.3 Tm (  sentence barge-in.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 54.0 158.4 Tm (- Greets every worker by their logged-in name) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 54.0 146.0 Tm (  in their language.) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.984 0.749 0.141 RG 284.0 51.0 224.0 195.0 re B
+BT /F2 11.5 Tf 0.984 0.749 0.141 rg 1 0 0 1 296.0 228.0 Tm (2. Visual Proof + Approvals) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 296.0 213.0 Tm (- Native Android camera torn-bag photo upload) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 296.0 200.6 Tm (  with bag stepper.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 296.0 185.7 Tm (- PIN-secured Manager Portal \(Priya\) with) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 296.0 173.3 Tm (  1-tap Approve/Decline.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 296.0 158.4 Tm (- ACID Firestore + Private GCS Vault +) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 296.0 146.0 Tm (  SHA-256 Audit Chain.) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.220 0.741 0.973 RG 526.0 51.0 224.0 195.0 re B
+BT /F2 11.5 Tf 0.220 0.741 0.973 rg 1 0 0 1 538.0 228.0 Tm (3. Zero-Fee Open-Source Ops) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 538.0 213.0 Tm (- Open-source ntfy replaces Meta WhatsApp API) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 538.0 200.6 Tm (  \(Rs 0 fees\).) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 538.0 185.7 Tm (- Direct Tally XML & CSV Downloads + 1-tap) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 538.0 173.3 Tm (  Ledger Push.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 538.0 158.4 Tm (- 1-command docker-compose.yml \(starts with) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 538.0 146.0 Tm (  zero secret keys\).) Tj ET
+BT /F1 8.5 Tf 0.580 0.639 0.722 rg 1 0 0 1 42.0 22.0 Tm (Live App: https://deliverex-live-353183969363.asia-south1.run.app   |   APK: Raju-Bhai-v1.5.0.apk) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 792 446] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 3638 >>
+stream
+0.027 0.043 0.078 rg 0.0 0.0 792.0 446.0 re f
+0.984 0.749 0.141 rg 0.0 441.0 792.0 5.0 re f
+BT /F2 9 Tf 0.984 0.749 0.141 rg 1 0 0 1 36.0 416.0 Tm (1. PROBLEM & SOLUTION) Tj ET
+BT /F2 19 Tf 1.000 1.000 1.000 rg 1 0 0 1 36.0 392.0 Tm (Solving Frontline Friction in Indian MSME Wholesale Logistics) Tj ET
+BT /F1 9 Tf 0.580 0.639 0.722 rg 1 0 0 1 720.0 416.0 Tm (2 / 7) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.973 0.443 0.443 RG 36.0 36.0 350.0 336.0 re B
+BT /F2 11.5 Tf 0.973 0.443 0.443 rg 1 0 0 1 48.0 354.0 Tm (Who Has the Problem & Why It Hurts) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 339.0 Tm (- WHO: Indian wholesale distributors \(cement, FMCG, hardware, pharma,) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 326.6 Tm (  agri-inputs\), their Area Managers \(Priya\), and field delivery drivers) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 314.2 Tm (  \(Raja / Raju\).) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 299.3 Tm (- NOISY MANDI REALITY: Drivers visit 15-30 shops/day in 75+ dB markets) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 286.9 Tm (  and cannot type English ERP forms while unloading heavy stock.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 272.0 Tm (- UNVERIFIED DISPUTES: Torn bags and extra shopkeeper discounts cause) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 259.6 Tm (  long phone arguments, stock leakage, and unverified credits.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 244.7 Tm (- HIGH COST & LOCK-IN: Human support desks cost ~Rs 30/call; Meta) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 232.3 Tm (  WhatsApp Business APIs add per-message fees and compliance friction.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 217.4 Tm (- LATE ACCOUNTING: Nightly manual entry into Tally/SAP delays invoicing) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 205.0 Tm (  and cash reconciliation.) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.063 0.725 0.506 RG 406.0 36.0 350.0 336.0 re B
+BT /F2 11.5 Tf 0.063 0.725 0.506 rg 1 0 0 1 418.0 354.0 Tm (How Raju Bhai Solves It End-to-End) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 339.0 Tm (- SEPARATE ROLE PORTALS: Clean 2-tab Worker app \(Talk + Ops Chat\), PIN-) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 326.6 Tm (  secured 2-tab Manager app \(Approvals + Insights\), plus 4-tab Demo) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 314.2 Tm (  Mode.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 299.3 Tm (- VOICE-FIRST MULTILINGUAL AI: Drivers simply speak in Telugu, Hindi,) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 286.9 Tm (  Tanglish, Hinglish, or English; AI extracts shop, bags, cash & SOP) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 274.5 Tm (  rules in real time.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 259.6 Tm (- VISUAL DAMAGE PROOF: Native camera photo + bag counter attaches proof) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 247.2 Tm (  straight to Priya's approval card \(SOP-5.1\).) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 232.3 Tm (- 1-TAP MANAGER LOOP: Priya zooms proof, taps Approve -> Tally/CSV) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 219.9 Tm (  ledger updates, Official Receipt generates & pushes via open-source) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 207.5 Tm (  ntfy.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 192.6 Tm (- SELF-UPDATING ANDROID APP: Direct in-app APK push updates with custom) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 180.2 Tm (  chime alerts.) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 792 446] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 3869 >>
+stream
+0.027 0.043 0.078 rg 0.0 0.0 792.0 446.0 re f
+0.984 0.749 0.141 rg 0.0 441.0 792.0 5.0 re f
+BT /F2 9 Tf 0.984 0.749 0.141 rg 1 0 0 1 36.0 416.0 Tm (2. WHO IT IS FOR) Tj ET
+BT /F2 19 Tf 1.000 1.000 1.000 rg 1 0 0 1 36.0 392.0 Tm (Target Users & Addressable Market Size in India) Tj ET
+BT /F1 9 Tf 0.580 0.639 0.722 rg 1 0 0 1 720.0 416.0 Tm (3 / 7) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.063 0.725 0.506 RG 36.0 207.0 232.0 165.0 re B
+BT /F2 11.5 Tf 0.063 0.725 0.506 rg 1 0 0 1 48.0 354.0 Tm (Primary User 1: Field Workers) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 339.0 Tm (- Delivery drivers & loaders using budget) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 326.6 Tm (  Android phones \(Rs 8k-15k\).) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 311.7 Tm (- Prefer speaking in regional languages) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 299.3 Tm (  \(Hindi, Telugu, Tamil, Hinglish\).) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 284.4 Tm (- Need big buttons, voice updates, and 1-tap) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 272.0 Tm (  camera proof.) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.984 0.749 0.141 RG 280.0 207.0 232.0 165.0 re B
+BT /F2 11.5 Tf 0.984 0.749 0.141 rg 1 0 0 1 292.0 354.0 Tm (Primary User 2: Area Managers) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 339.0 Tm (- Distributor owners & ops managers \(e.g.,) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 326.6 Tm (  Priya\) managing 5-50 trucks.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 311.7 Tm (- Need PIN-secured approvals, damage proof) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 299.3 Tm (  verification, and Tally/CSV exports.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 284.4 Tm (- Care about cash leakage, stock quarantine,) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 272.0 Tm (  and daily settlement.) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.220 0.741 0.973 RG 524.0 207.0 232.0 165.0 re B
+BT /F2 11.5 Tf 0.220 0.741 0.973 rg 1 0 0 1 536.0 354.0 Tm (Secondary: Tally Accountants) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 536.0 339.0 Tm (- Receive clean TallyPrime XML vouchers and) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 536.0 326.6 Tm (  Ledger CSV files directly.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 536.0 311.7 Tm (- Eliminate 2-3 hours/day of manual delivery) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 536.0 299.3 Tm (  slip transcription.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 536.0 284.4 Tm (- Full SHA-256 tamper-evident audit trail for) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 536.0 272.0 Tm (  every approval.) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.984 0.749 0.141 RG 36.0 36.0 720.0 156.0 re B
+BT /F2 11.5 Tf 0.984 0.749 0.141 rg 1 0 0 1 48.0 174.0 Tm (How Many Users Could Use Raju Bhai? \(TAM / SAM / SOM\)) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 159.0 Tm (- TAM \(Total Indian MSME Base\): 63+ Million registered MSMEs in India; ~12 Million B2B wholesale & retail distribution businesses employing 25M+) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 146.6 Tm (  frontline delivery & dispatch workers.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 131.7 Tm (- SAM \(Serviceable Market\): ~1.5 Million multi-vehicle regional distributors in Cement, Building Materials, FMCG, Pharma & Agri-Inputs already using) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 119.3 Tm (  Tally/Busy ERP.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 104.4 Tm (- SOM \(Year-1 Target\): 5,000 active distributor fleets \(~50,000 field workers + 5,000 managers\) generating Rs 6 Cr ARR at Rs 999/fleet/month while) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 92.0 Tm (  saving customers 13.6x vs manual desks \(Rs 2.20/call vs Rs 30/call\).) Tj ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 792 446] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 9 0 R >>
+endobj
+11 0 obj
+<< /Length 3617 >>
+stream
+0.027 0.043 0.078 rg 0.0 0.0 792.0 446.0 re f
+0.984 0.749 0.141 rg 0.0 441.0 792.0 5.0 re f
+BT /F2 9 Tf 0.984 0.749 0.141 rg 1 0 0 1 36.0 416.0 Tm (3. WHAT IT DEPENDS ON) Tj ET
+BT /F2 19 Tf 1.000 1.000 1.000 rg 1 0 0 1 36.0 392.0 Tm (AI Models, Voice Services & Resilience If Costs Rise or APIs Fail) Tj ET
+BT /F1 9 Tf 0.580 0.639 0.722 rg 1 0 0 1 720.0 416.0 Tm (4 / 7) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.220 0.741 0.973 RG 36.0 212.0 350.0 160.0 re B
+BT /F2 11.5 Tf 0.220 0.741 0.973 rg 1 0 0 1 48.0 354.0 Tm (Voice & Multimodal AI \(Gemini Live API\)) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 339.0 Tm (- Uses Gemini Live API \(bidirectional 16kHz/24kHz PCM audio + vision\)) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 326.6 Tm (  for sub-second multilingual voice & tool calling.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 311.7 Tm (- IF COSTLY OR DOWN: App automatically degrades to our built-in Backend) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 299.3 Tm (  Workflow Engine + native Android TextToSpeech \(zero API keys needed!\).) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 286.9 Tm (  Same WebSocket interface also supports swapping in open-weight Whisper) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 274.5 Tm (  + Gemma/Llama.) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.063 0.725 0.506 RG 406.0 212.0 350.0 160.0 re B
+BT /F2 11.5 Tf 0.063 0.725 0.506 rg 1 0 0 1 418.0 354.0 Tm (Messaging & Push \(Open-Source ntfy\)) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 339.0 Tm (- Uses ntfy \(github.com/binwiederhier/ntfy, Apache-2.0/GPLv2\) instead of) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 326.6 Tm (  paid Meta WhatsApp API for receipts, ledgers & app updates.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 311.7 Tm (- IF ntfy.sh RATE-LIMITS OR STOPS: Self-host the official open-source) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 299.3 Tm (  ntfy Docker image on Cloud Run or any VPS in 2 minutes by updating) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 286.9 Tm (  NTFY_SERVER_URL.) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.984 0.749 0.141 RG 36.0 38.0 350.0 160.0 re B
+BT /F2 11.5 Tf 0.984 0.749 0.141 rg 1 0 0 1 48.0 180.0 Tm (Database & Proof Storage \(Firestore + GCS\)) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 165.0 Tm (- Production uses Google Firestore \(ACID transactions\) + Private GCS) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 152.6 Tm (  bucket for torn-bag photos.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 137.7 Tm (- IF CLOUD COSTS RISE OR OUTAGE OCCURS: Built-in SQLite WAL local) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 125.3 Tm (  database + local file storage fallback is already active) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 112.9 Tm (  \(USE_FIRESTORE=false\) and runs anywhere via docker-compose.yml.) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.655 0.545 0.980 RG 406.0 38.0 350.0 160.0 re B
+BT /F2 11.5 Tf 0.655 0.545 0.980 rg 1 0 0 1 418.0 180.0 Tm (Hosting & Android Distribution) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 165.0 Tm (- Backend runs as a portable Python FastAPI Docker container \(Cloud Run) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 152.6 Tm (  today, portable to any Linux server\).) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 137.7 Tm (- Android APK is signed and hosted directly \(no Play Store gatekeeping\)) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 418.0 125.3 Tm (  with built-in FileProvider self-updater via /api/app/version.) Tj ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 792 446] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 11 0 R >>
+endobj
+13 0 obj
+<< /Length 3871 >>
+stream
+0.027 0.043 0.078 rg 0.0 0.0 792.0 446.0 re f
+0.984 0.749 0.141 rg 0.0 441.0 792.0 5.0 re f
+BT /F2 9 Tf 0.984 0.749 0.141 rg 1 0 0 1 36.0 416.0 Tm (4. LAUNCH PLAN) Tj ET
+BT /F2 19 Tf 1.000 1.000 1.000 rg 1 0 0 1 36.0 392.0 Tm (How We Reach Our First Users and Scale Across India) Tj ET
+BT /F1 9 Tf 0.580 0.639 0.722 rg 1 0 0 1 720.0 416.0 Tm (5 / 7) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.063 0.725 0.506 RG 36.0 36.0 232.0 336.0 re B
+BT /F2 11.5 Tf 0.063 0.725 0.506 rg 1 0 0 1 48.0 354.0 Tm (Phase 1: First 25 Fleets \(Month 1\)) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 339.0 Tm (- On-ground pilot in 2 high-density wholesale) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 326.6 Tm (  hubs: Old Delhi \(Chawri Bazar\) & Hyderabad) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 314.2 Tm (  \(Begum Bazar\).) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 299.3 Tm (- Distribute signed Android APK directly to) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 286.9 Tm (  drivers via 1 link - zero Play Store setup) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 274.5 Tm (  delay.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 259.6 Tm (- Onboard drivers in <60 seconds with Worker) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 247.2 Tm (  Login + Telugu / Hinglish voice greeting.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 232.3 Tm (- Measure real call accuracy, torn-bag dispute) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 219.9 Tm (  resolution time & Tally export adoption.) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.984 0.749 0.141 RG 280.0 36.0 232.0 336.0 re B
+BT /F2 11.5 Tf 0.984 0.749 0.141 rg 1 0 0 1 292.0 354.0 Tm (Phase 2: Channel & Viral Loop \(Months 2-4\)) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 339.0 Tm (- RECEIPT REFERRAL LOOP: Every approved) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 326.6 Tm (  delivery pushes a branded Raju Bhai Official) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 314.2 Tm (  Receipt to shopkeepers & managers, driving) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 301.8 Tm (  organic inquiries.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 286.9 Tm (- TALLY PARTNER CHANNEL: Partner with local) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 274.5 Tm (  TallyPrime resellers & CAs \(each serves) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 262.1 Tm (  50-200 MSME distributors\) offering 20%) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 249.7 Tm (  recurring referral share.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 234.8 Tm (- Zero-cost ntfy messaging keeps free tier) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 222.4 Tm (  sustainable for small 2-truck shops.) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.220 0.741 0.973 RG 524.0 36.0 232.0 336.0 re B
+BT /F2 11.5 Tf 0.220 0.741 0.973 rg 1 0 0 1 536.0 354.0 Tm (Phase 3: Scale & Monetize \(Months 5-12\)) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 536.0 339.0 Tm (- Launch on Google Play Store \(AAB bundle) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 536.0 326.6 Tm (  already built & signed\) + regional) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 536.0 314.2 Tm (  distributor trade associations.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 536.0 299.3 Tm (- Freemium SaaS: Free up to 50 deliveries/mo;) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 536.0 286.9 Tm (  Pro at Rs 999/fleet/mo \(unlimited Live AI) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 536.0 274.5 Tm (  calls, Tally auto-sync, cloud proof vault\).) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 536.0 259.6 Tm (- Expand language packs \(Marathi, Gujarati,) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 536.0 247.2 Tm (  Kannada, Bengali\) for pan-India coverage.) Tj ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 792 446] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 13 0 R >>
+endobj
+15 0 obj
+<< /Length 2556 >>
+stream
+0.027 0.043 0.078 rg 0.0 0.0 792.0 446.0 re f
+0.984 0.749 0.141 rg 0.0 441.0 792.0 5.0 re f
+BT /F2 9 Tf 0.984 0.749 0.141 rg 1 0 0 1 36.0 416.0 Tm (5. UNIT ECONOMICS & WORKING PROTOTYPE) Tj ET
+BT /F2 19 Tf 1.000 1.000 1.000 rg 1 0 0 1 36.0 392.0 Tm (13.6x ROI with Production Cloud + Android Build Live Today) Tj ET
+BT /F1 9 Tf 0.580 0.639 0.722 rg 1 0 0 1 720.0 416.0 Tm (6 / 7) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.973 0.443 0.443 RG 36.0 242.0 232.0 130.0 re B
+BT /F2 18 Tf 0.973 0.443 0.443 rg 1 0 0 1 48.0 354.0 Tm (Rs 30.00 / call) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 339.0 Tm (- Manual human ops desk cost.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 324.1 Tm (- Slow callbacks & manual Tally typing.) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.220 0.741 0.973 RG 280.0 242.0 232.0 130.0 re B
+BT /F2 18 Tf 0.220 0.741 0.973 rg 1 0 0 1 292.0 354.0 Tm (Rs 2.20 / call) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 339.0 Tm (- Raju Bhai Gemini Live AI cost.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 292.0 324.1 Tm (- Voice + camera proof + ledger sync.) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.063 0.725 0.506 RG 524.0 242.0 232.0 130.0 re B
+BT /F2 18 Tf 0.063 0.725 0.506 rg 1 0 0 1 536.0 354.0 Tm (Rs 2.08 Lakh / mo) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 536.0 339.0 Tm (- Net monthly savings at 250 calls/day.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 536.0 324.1 Tm (- 13.6x ROI + Rs 0 WhatsApp API fees.) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.984 0.749 0.141 RG 36.0 36.0 720.0 190.0 re B
+BT /F2 11.5 Tf 0.984 0.749 0.141 rg 1 0 0 1 48.0 208.0 Tm (What Is Already Built & Verified in This Round 2 Prototype) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 193.0 Tm (- Native Android App \(Kotlin + Jetpack Compose, v1.5.0\): Signed APK & AAB, separate Worker/Manager/Demo logins, loudspeaker Gemini Live audio, native) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 180.6 Tm (  camera photo proof, direct CSV/XML Downloads, custom chime notifications, and ntfy live push + self-updater.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 165.7 Tm (- FastAPI Backend + Web Command Center: Runs live on Google Cloud Run \(Firestore ACID + Private GCS\) AND locally with 1 command \(docker compose up) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 153.3 Tm (  --build\) with zero secret keys required.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 138.4 Tm (- Open-Source Messaging: Real-time ntfy ledger, receipt, approval & app-update push verified live.) Tj ET
+endstream
+endobj
+16 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 792 446] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 15 0 R >>
+endobj
+17 0 obj
+<< /Length 2945 >>
+stream
+0.027 0.043 0.078 rg 0.0 0.0 792.0 446.0 re f
+0.984 0.749 0.141 rg 0.0 441.0 792.0 5.0 re f
+BT /F2 9 Tf 0.984 0.749 0.141 rg 1 0 0 1 36.0 416.0 Tm (6. TRY IT NOW) Tj ET
+BT /F2 19 Tf 1.000 1.000 1.000 rg 1 0 0 1 36.0 392.0 Tm (1-Command Docker Setup, Live Cloud App & Signed Android APK) Tj ET
+BT /F1 9 Tf 0.580 0.639 0.722 rg 1 0 0 1 720.0 416.0 Tm (7 / 7) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.063 0.725 0.506 RG 36.0 36.0 360.0 336.0 re B
+BT /F2 11.5 Tf 0.063 0.725 0.506 rg 1 0 0 1 48.0 354.0 Tm (3-Minute Demo Flow) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 339.0 Tm (- 1. Start locally via 'docker compose up --build' on port 8000 \(no .env) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 326.6 Tm (  or API keys needed\) OR open the live Cloud Run link.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 311.7 Tm (- 2. On Android: Sign in as Worker \(e.g., Raja\), pick Telugu/Hinglish ->) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 299.3 Tm (  tap Start Voice Call -> AI greets Raja in Telugu.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 284.4 Tm (- 3. Capture native camera photo of 2 torn bags -> confirm count -> upload) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 272.0 Tm (  to Private GCS.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 257.1 Tm (- 4. Switch to Manager Login \(Priya, masked PIN: 4242\) -> zoom damage) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 244.7 Tm (  photo -> tap Approve -> Official Receipt generates.) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 48.0 229.8 Tm (- 5. Tap Push Ledger \(ntfy\) or Download CSV directly to phone Downloads.) Tj ET
+0.063 0.102 0.184 rg 1.00 w 0.984 0.749 0.141 RG 414.0 36.0 342.0 336.0 re B
+BT /F2 11.5 Tf 0.984 0.749 0.141 rg 1 0 0 1 426.0 354.0 Tm (Live Submission Links) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 426.0 339.0 Tm (- GitHub Repository \(Public\):) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 426.0 326.6 Tm (  https://github.com/puvvalalikhita/google-hackathon-2026) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 426.0 311.7 Tm (- Live Web App \(Cloud Run\): https://deliverex-live-353183969363.asia-) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 426.0 299.3 Tm (  south1.run.app) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 426.0 284.4 Tm (- Direct Android APK \(v1.5.0 Signed\):) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 426.0 272.0 Tm (  https://storage.googleapis.com/deliverex-) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 426.0 259.6 Tm (  downloads-353183969363/Raju-Bhai-v1.5.0.apk) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 426.0 244.7 Tm (- Open-Source Live Ops Push Feed \(ntfy\): https://ntfy.sh/rajubhai-) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 426.0 232.3 Tm (  ops-353183969363) Tj ET
+BT /F1 9.2 Tf 0.796 0.835 0.882 rg 1 0 0 1 426.0 217.4 Tm (- Health & Version Endpoints: /api/health  |  /api/app/version) Tj ET
+endstream
+endobj
+18 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 792 446] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 17 0 R >>
+endobj
+xref
+0 19
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000162 00000 n 
+0000000259 00000 n 
+0000000361 00000 n 
+0000003395 00000 n 
+0000003531 00000 n 
+0000007221 00000 n 
+0000007357 00000 n 
+0000011278 00000 n 
+0000011415 00000 n 
+0000015085 00000 n 
+0000015223 00000 n 
+0000019147 00000 n 
+0000019285 00000 n 
+0000021894 00000 n 
+0000022032 00000 n 
+0000025030 00000 n 
+trailer
+<< /Size 19 /Root 1 0 R >>
+startxref
+25168
+%%EOF

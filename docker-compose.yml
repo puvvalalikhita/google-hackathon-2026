@@ -1,0 +1,17 @@
+services:
+  raju-bhai:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - ENVIRONMENT=development
+      - ALLOW_DEMO_RESET=true
+      - USE_FIRESTORE=false
+      - ENFORCE_MANAGER_AUTH=false
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - NTFY_SERVER_URL=${NTFY_SERVER_URL:-https://ntfy.sh}
+      - NTFY_TOPIC=${NTFY_TOPIC:-rajubhai-ops-353183969363}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
