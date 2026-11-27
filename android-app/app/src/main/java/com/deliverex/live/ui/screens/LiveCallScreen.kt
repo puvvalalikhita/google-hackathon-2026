@@ -80,6 +80,8 @@ fun LiveCallScreen(
     onRunGuidedStep: (Int) -> Unit,
     onSendTextTurn: (String) -> Unit,
     onOpenCameraProof: () -> Unit,
+    onOpenGalleryProof: () -> Unit,
+    onOpenProofZoom: (String) -> Unit,
     onSendSampleDamageProof: () -> Unit
 ) {
     val pal = LocalDeliverExPalette.current
@@ -324,24 +326,72 @@ fun LiveCallScreen(
                 ) {
                     Button(
                         onClick = onOpenCameraProof,
-                        modifier = Modifier.weight(1f).height(48.dp),
+                        enabled = !state.photoUploading,
+                        modifier = Modifier.weight(1f).height(50.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = pal.cyan, contentColor = Color(0xFF070B14)),
                         shape = RoundedCornerShape(14.dp)
                     ) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Photo of Damaged Bags", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Take Photo", fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
                     }
 
-                    if (state.showDemoControls) {
-                        OutlinedButton(
-                            onClick = onSendSampleDamageProof,
-                            modifier = Modifier.height(48.dp),
-                            shape = RoundedCornerShape(14.dp)
+                    OutlinedButton(
+                        onClick = onOpenGalleryProof,
+                        enabled = !state.photoUploading,
+                        modifier = Modifier.weight(1f).height(50.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Gallery", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+
+                if (state.userRole == "DEMO") {
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedButton(
+                        onClick = onSendSampleDamageProof,
+                        enabled = !state.photoUploading,
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("🧪 Send Sample Torn Bag Photo (Demo)", fontSize = 12.sp)
+                    }
+                }
+
+                if (state.photoUploading) {
+                    Spacer(Modifier.height(8.dp))
+                    androidx.compose.material3.LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = pal.cyan
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text("⏳ Uploading torn bag photo to Priya...", color = pal.cyan, fontSize = 11.sp)
+                }
+
+                state.lastUploadedProofUrl?.let { uploadedUrl ->
+                    Spacer(Modifier.height(10.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = pal.success.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, pal.success.copy(alpha = 0.45f))
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Sample", fontSize = 12.sp)
+                            com.deliverex.live.ui.components.Base64ProofImage(
+                                dataUrl = uploadedUrl,
+                                baseUrl = state.baseUrl,
+                                modifier = Modifier.size(56.dp),
+                                onClick = { onOpenProofZoom(uploadedUrl) }
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("✅ Photo Uploaded", color = pal.success, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                                Text("Sent to Priya for ${state.activeStore}. Tap thumbnail to preview.", color = Color(0xFFCBD5E1), fontSize = 11.sp)
+                            }
                         }
                     }
                 }
@@ -442,39 +492,41 @@ fun LiveCallScreen(
             }
         }
 
-        // 6. Expandable Demo / Judge Shortcuts (Hidden cleanly in normal Driver mode)
-        item {
-            GlassCard(backgroundColor = Color(0x880B1220)) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onToggleDemoControls() },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "🧪 Demo & Test Shortcuts",
-                        color = pal.primary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Icon(
-                        if (state.showDemoControls) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = Color.White
-                    )
-                }
-
-                if (state.showDemoControls) {
-                    Spacer(Modifier.height(10.dp))
+        // 6. Demo / Judge Shortcuts (Shown ONLY in Hackathon Demo login)
+        if (state.userRole == "DEMO") {
+            item {
+                GlassCard(backgroundColor = Color(0x880B1220)) {
                     Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onToggleDemoControls() },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        GuidedStepChip("1. Deliver 20 Bags", pal.success) { onRunGuidedStep(1) }
-                        GuidedStepChip("2. ⚡ Interrupt (2 Torn + ₹500)", pal.warning) { onRunGuidedStep(2) }
-                        GuidedStepChip("3. Escalate Priya", pal.danger) { onRunGuidedStep(3) }
-                        GuidedStepChip("4. Chennai Tanglish", pal.cyan) { onRunGuidedStep(4) }
+                        Text(
+                            "🧪 Demo & Test Shortcuts",
+                            color = pal.primary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Icon(
+                            if (state.showDemoControls) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = Color.White
+                        )
+                    }
+
+                    if (state.showDemoControls) {
+                        Spacer(Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            GuidedStepChip("1. Deliver 20 Bags", pal.success) { onRunGuidedStep(1) }
+                            GuidedStepChip("2. ⚡ Interrupt (2 Torn + ₹500)", pal.warning) { onRunGuidedStep(2) }
+                            GuidedStepChip("3. Escalate Priya", pal.danger) { onRunGuidedStep(3) }
+                            GuidedStepChip("4. Chennai Tanglish", pal.cyan) { onRunGuidedStep(4) }
+                        }
                     }
                 }
             }

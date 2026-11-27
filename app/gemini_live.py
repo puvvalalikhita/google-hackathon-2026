@@ -12,7 +12,7 @@ from app.tools import GEMINI_TOOL_DECLARATIONS, execute_tool, set_latest_visual_
 from app.tts import synthesize_speech_b64
 from app.workflows import is_vertex_configured, run_guided_workflow_step, run_voice_agent_workflow
 
-SYSTEM_INSTRUCTION = """You are DeliverEx Live AI — a fast, friendly, multimodal real-time frontline voice & vision operations agent for Indian MSME wholesale logistics (DeliverEx Logistics).
+SYSTEM_INSTRUCTION = """You are Raju Bhai AI — a fast, friendly, multimodal real-time frontline voice & vision operations assistant for Indian wholesale logistics.
 
 ROLE & STYLE:
 - You speak directly with field delivery drivers (like Raju) standing in loud, busy wholesale markets (Old Delhi Mandi, Chennai T. Nagar) or driving trucks.

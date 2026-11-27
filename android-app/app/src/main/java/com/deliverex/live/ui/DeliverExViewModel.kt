@@ -88,6 +88,8 @@ data class DeliverExUiState(
     val onboardingCompleted: Boolean = false,
     val showDemoControls: Boolean = false,
     val micMuted: Boolean = false,
+    val photoUploading: Boolean = false,
+    val lastUploadedProofUrl: String? = null,
     val availableUpdate: com.deliverex.live.update.AppUpdateInfo? = null,
     val updateDownloadProgress: Int? = null,
     val checkingUpdate: Boolean = false,
@@ -302,13 +304,13 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
                 callActive = true,
                 callSeconds = 0,
                 voiceStage = "CONNECTING",
-                voiceStageDetail = if (it.backendConnected) "Opening real-time bridge to DeliverEx Live..." else "Interactive Demo Call Active — tap Step 1–4 or speak/type!",
+                voiceStageDetail = if (it.backendConnected) "Opening real-time bridge to Raju Bhai AI..." else "Interactive Demo Call Active — speak or type!",
                 transcripts = if (it.transcripts.isEmpty()) {
                     listOf(
                         TranscriptMessage(
                             id = UUID.randomUUID().toString(),
                             role = "system",
-                            text = if (it.backendConnected) "Connected to DeliverEx Live Server (${it.baseUrl})" else "Offline Interactive Demo Call active — full SOP & ERP workflows ready!"
+                            text = if (it.backendConnected) "Connected to Raju Bhai Live AI (${it.baseUrl})" else "Offline Practice Call active — ready!"
                         )
                     )
                 } else it.transcripts
@@ -649,6 +651,7 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
 
     private suspend fun submitProofDataUrl(dataUrl: String, caption: String, damagedBags: Int) {
         val store = _uiState.value.activeStore
+        _uiState.update { it.copy(photoUploading = true, toastMessage = "⏳ Uploading photo for $store...") }
         if (_uiState.value.backendConnected && !prefs.offlineDemoMode) {
             if (_uiState.value.liveGeminiReady) {
                 wsClient.sendVideoFrame(
@@ -662,31 +665,38 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
             runCatching {
                 apiClient.uploadProofPhoto(dataUrl, caption, store, damagedBags, _uiState.value.driverName)
             }.onSuccess { state ->
+                val proofUrl = state.approvals.firstOrNull {
+                    it.customerName.equals(store, ignoreCase = true) && !it.proofImage.isNullOrBlank()
+                }?.proofImage ?: state.approvals.firstOrNull { !it.proofImage.isNullOrBlank() }?.proofImage ?: dataUrl
                 _uiState.update {
                     it.copy(
                         erpState = state,
-                        toastMessage = "👁️ Visual proof verified & attached to Priya's 1-Tap Approval!"
+                        photoUploading = false,
+                        lastUploadedProofUrl = proofUrl,
+                        toastMessage = "✅ Photo uploaded & sent to Priya for approval!"
                     )
                 }
                 com.deliverex.live.update.AppNotificationManager.notifyOpsAlert(
                     context = getApplication(),
-                    title = "📷 Photo Attached — $store",
-                    message = "Damaged bag proof ($damagedBags bags) sent to Priya for 1-tap approval."
+                    title = "📷 Photo Uploaded — $store",
+                    message = "Damaged bag photo ($damagedBags bags) sent to Priya for 1-tap approval."
                 )
-                appendTranscript("system", "📷 Visual proof attached for $store ($damagedBags torn bags).", true)
+                appendTranscript("system", "📷 Photo uploaded for $store ($damagedBags torn bags).", true)
             }.onFailure { err ->
-                _uiState.update { it.copy(toastMessage = "Photo upload failed: ${err.message}") }
+                _uiState.update { it.copy(photoUploading = false, toastMessage = "Photo upload failed: ${err.message}") }
             }
         } else {
             val state = offlineEngine.attachVisualProof(dataUrl, caption, store, damagedBags, _uiState.value.driverName)
             _uiState.update {
                 it.copy(
                     erpState = state,
+                    photoUploading = false,
+                    lastUploadedProofUrl = dataUrl,
                     highlightedPolicyIds = it.highlightedPolicyIds + "SOP-5.1",
-                    toastMessage = "👁️ Visual proof attached to Priya's 1-Tap Approval (SOP-5.1)!"
+                    toastMessage = "✅ Photo uploaded & attached to Priya's approval!"
                 )
             }
-            appendTranscript("system", "📷 Visual proof attached for $store ($damagedBags torn bags).", true)
+            appendTranscript("system", "📷 Photo attached for $store ($damagedBags torn bags).", true)
         }
     }
 
@@ -819,6 +829,7 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
                             waSending = false
                         )
                     }
+                    com.deliverex.live.update.AppNotificationManager.playInAppChime(getApplication())
                 }.onFailure { err ->
                     _uiState.update { it.copy(waSending = false, toastMessage = "WhatsApp send error: ${err.message}") }
                 }
@@ -982,6 +993,75 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
                 preferredLanguage = language,
                 onboardingCompleted = true,
                 showDemoControls = role == "DEMO"
+            )
+        }
+    }
+
+    fun loginAsWorker(name: String, language: String) {
+        completeOnboarding("DRIVER", name, language)
+    }
+
+    fun loginAsManager(pin: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            if (!_uiState.value.backendConnected || prefs.offlineDemoMode) {
+                if (pin.trim() == "4242") {
+                    prefs.userRole = "MANAGER"
+                    prefs.onboardingCompleted = true
+                    _uiState.update {
+                        it.copy(
+                            userRole = "MANAGER",
+                            onboardingCompleted = true,
+                            ownerAuthenticated = true,
+                            ownerActor = "Priya Sharma",
+                            showDemoControls = false
+                        )
+                    }
+                    onResult(true, null)
+                } else {
+                    onResult(false, "Invalid Manager PIN (demo PIN: 4242)")
+                }
+                return@launch
+            }
+            runCatching { apiClient.loginOwner(pin.trim()) }
+                .onSuccess { resp ->
+                    prefs.ownerToken = resp.token
+                    prefs.userRole = "MANAGER"
+                    prefs.onboardingCompleted = true
+                    _uiState.update {
+                        it.copy(
+                            userRole = "MANAGER",
+                            onboardingCompleted = true,
+                            ownerAuthenticated = true,
+                            ownerActor = resp.actor,
+                            showDemoControls = false,
+                            toastMessage = "🔓 Welcome, ${resp.actor}!"
+                        )
+                    }
+                    refreshFromServer()
+                    onResult(true, null)
+                }
+                .onFailure { err ->
+                    onResult(false, err.message ?: "Invalid Manager PIN")
+                }
+        }
+    }
+
+    fun loginAsDemo() {
+        completeOnboarding("DEMO", "Raju Kumar", _uiState.value.preferredLanguage)
+        // Auto-unlock demo PIN so hackathon judges can test approvals smoothly
+        if (!_uiState.value.ownerAuthenticated) {
+            unlockOwnerWithPin("4242")
+        }
+    }
+
+    fun logout() {
+        stopLiveCall()
+        prefs.onboardingCompleted = false
+        _uiState.update {
+            it.copy(
+                onboardingCompleted = false,
+                showDemoControls = false,
+                toastMessage = "Signed out — choose an account to sign in"
             )
         }
     }

@@ -608,6 +608,401 @@ fun AppUpdateBanner(
     }
 }
 
+fun createTempCameraUri(context: android.content.Context): android.net.Uri {
+    val dir = java.io.File(context.cacheDir, "camera").apply { mkdirs() }
+    val file = java.io.File(dir, "proof_${System.currentTimeMillis()}.jpg")
+    return androidx.core.content.FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        file
+    )
+}
+
+fun decodeBitmapFromUri(context: android.content.Context, uri: android.net.Uri): Bitmap? = runCatching {
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+        android.graphics.ImageDecoder.decodeBitmap(
+            android.graphics.ImageDecoder.createSource(context.contentResolver, uri)
+        ) { decoder, info, _ ->
+            val maxDim = 1024
+            val w = info.size.width
+            val h = info.size.height
+            if (w > maxDim || h > maxDim) {
+                val scale = maxDim.toFloat() / maxOf(w, h).toFloat()
+                decoder.setTargetSize((w * scale).toInt().coerceAtLeast(1), (h * scale).toInt().coerceAtLeast(1))
+            }
+            decoder.isMutableRequired = true
+        }
+    } else {
+        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+    }
+}.getOrNull()
+
+@Composable
+fun DamagePhotoConfirmDialog(
+    storeName: String,
+    bitmap: Bitmap,
+    uploading: Boolean,
+    onConfirmUpload: (damagedBags: Int) -> Unit,
+    onRetake: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val pal = LocalDeliverExPalette.current
+    var damagedCount by remember { mutableStateOf(2) }
+
+    Dialog(
+        onDismissRequest = { if (!uploading) onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(22.dp),
+            color = Color(0xFF0C1426),
+            border = BorderStroke(1.dp, pal.cyan.copy(alpha = 0.5f))
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Confirm Torn Bag Photo", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                        Text("Shop: $storeName", color = pal.cyan, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    if (!uploading) {
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                        }
+                    }
+                }
+
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = "Damaged bags preview",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .border(1.dp, pal.borderGlass, RoundedCornerShape(16.dp))
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFF111C33),
+                    border = BorderStroke(1.dp, pal.borderGlass)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("How many torn bags?", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { if (damagedCount > 1) damagedCount-- },
+                                enabled = !uploading && damagedCount > 1,
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Text("−", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Text(
+                                "$damagedCount",
+                                color = pal.primary,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            OutlinedButton(
+                                onClick = { if (damagedCount < 50) damagedCount++ },
+                                enabled = !uploading,
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Text("+", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                if (uploading) {
+                    androidx.compose.material3.LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(4.dp)),
+                        color = pal.success
+                    )
+                    Text("Uploading photo to Priya...", color = pal.cyan, fontSize = 12.sp)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onRetake,
+                        enabled = !uploading,
+                        modifier = Modifier.height(50.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text("Retake", fontSize = 13.sp)
+                    }
+                    Button(
+                        onClick = { onConfirmUpload(damagedCount) },
+                        enabled = !uploading,
+                        modifier = Modifier.weight(1f).height(50.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = pal.success, contentColor = Color(0xFF070B14))
+                    ) {
+                        Text(
+                            if (uploading) "Uploading..." else "✅ Upload Photo",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LoginScreen(
+    initialName: String,
+    initialLanguage: String,
+    onWorkerLogin: (name: String, language: String) -> Unit,
+    onManagerLogin: (pin: String, onResult: (Boolean, String?) -> Unit) -> Unit,
+    onDemoLogin: () -> Unit
+) {
+    val pal = LocalDeliverExPalette.current
+    var activePortal by remember { mutableStateOf("WORKER") } // WORKER | MANAGER | DEMO
+    var workerName by remember { mutableStateOf(initialName.ifBlank { "Raju Kumar" }) }
+    var selectedLang by remember { mutableStateOf(initialLanguage) }
+    var managerPin by remember { mutableStateOf("") }
+    var managerLoading by remember { mutableStateOf(false) }
+    var managerError by remember { mutableStateOf<String?>(null) }
+    val languages = listOf("Hinglish", "हिंदी", "Tanglish", "తెలుగు", "English")
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(listOf(Color(0xFF060A13), Color(0xFF0D172B), Color(0xFF070B14)))
+            )
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Spacer(Modifier.height(14.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            WorkerLogoBadge(size = 56.dp)
+            Column {
+                Text("Raju Bhai", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Select your account to sign in", color = Color(0xFF94A3B8), fontSize = 13.sp)
+            }
+        }
+
+        // Clean 3-Portal Account Selector
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf(
+                Triple("WORKER", "🚚 Worker", pal.success),
+                Triple("MANAGER", "👩‍💼 Priya", pal.primary),
+                Triple("DEMO", "🏆 Demo", pal.cyan)
+            ).forEach { (id, label, accent) ->
+                val sel = activePortal == id
+                Surface(
+                    onClick = {
+                        activePortal = id
+                        managerError = null
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (sel) accent.copy(alpha = 0.22f) else Color(0x88111B2E),
+                    border = BorderStroke(1.5.dp, if (sel) accent else pal.borderGlass)
+                ) {
+                    Box(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            label,
+                            color = if (sel) Color.White else Color(0xFF94A3B8),
+                            fontSize = 13.sp,
+                            fontWeight = if (sel) FontWeight.ExtraBold else FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+
+        when (activePortal) {
+            "WORKER" -> {
+                GlassCard(borderColor = pal.success.copy(alpha = 0.5f)) {
+                    Text("🚚 Delivery Worker Login", color = pal.success, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Simple voice call, torn bag photo upload, and WhatsApp updates — no manager clutter.",
+                        color = Color(0xFFCBD5E1),
+                        fontSize = 12.sp
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    OutlinedTextField(
+                        value = workerName,
+                        onValueChange = { workerName = it },
+                        label = { Text("Worker Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text("Voice Language", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        languages.forEach { lang ->
+                            val sel = selectedLang == lang
+                            Surface(
+                                onClick = { selectedLang = lang },
+                                shape = RoundedCornerShape(50),
+                                color = if (sel) pal.cyan.copy(alpha = 0.22f) else Color(0x66111B2E),
+                                border = BorderStroke(1.dp, if (sel) pal.cyan else pal.borderGlass)
+                            ) {
+                                Text(
+                                    lang,
+                                    color = if (sel) Color.White else Color(0xFFCBD5E1),
+                                    fontSize = 12.sp,
+                                    fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = { onWorkerLogin(workerName, selectedLang) },
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = pal.success, contentColor = Color(0xFF070B14))
+                    ) {
+                        Text("Sign In as Worker →", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                    }
+                }
+            }
+
+            "MANAGER" -> {
+                GlassCard(borderColor = pal.primary.copy(alpha = 0.55f)) {
+                    Text("👩‍💼 Manager Login (Priya Sharma)", color = pal.primary, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Review driver damage photos, approve discounts in 1 tap, share WhatsApp receipts, and export Tally.",
+                        color = Color(0xFFCBD5E1),
+                        fontSize = 12.sp
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    OutlinedTextField(
+                        value = managerPin,
+                        onValueChange = {
+                            managerPin = it
+                            managerError = null
+                        },
+                        label = { Text("Manager PIN (demo: 4242)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    managerError?.let { err ->
+                        Spacer(Modifier.height(6.dp))
+                        Text(err, color = pal.danger, fontSize = 12.sp)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { managerPin = "4242"; managerError = null },
+                            enabled = !managerLoading,
+                            modifier = Modifier.height(54.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text("Fill 4242", fontSize = 12.sp)
+                        }
+                        Button(
+                            onClick = {
+                                if (managerPin.isBlank()) {
+                                    managerError = "Please enter Manager PIN (4242)"
+                                } else {
+                                    managerLoading = true
+                                    managerError = null
+                                    onManagerLogin(managerPin) { ok, err ->
+                                        managerLoading = false
+                                        if (!ok) managerError = err ?: "Invalid PIN"
+                                    }
+                                }
+                            },
+                            enabled = !managerLoading,
+                            modifier = Modifier.weight(1f).height(54.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = pal.primary, contentColor = Color(0xFF070B14))
+                        ) {
+                            Text(
+                                if (managerLoading) "Signing In..." else "Unlock Manager Portal →",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            else -> {
+                GlassCard(borderColor = pal.cyan.copy(alpha = 0.55f)) {
+                    Text("🏆 Hackathon Demo / Judge Preview", color = pal.cyan, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Watch every feature in one view: Live Gemini Voice Call, WhatsApp Ops, Priya's 1-Tap Approvals, Tally Export, Route Map, ROI Calculator & Guided Demo Steps.",
+                        color = Color(0xFFCBD5E1),
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = onDemoLogin,
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = pal.cyan, contentColor = Color(0xFF070B14))
+                    ) {
+                        Text("Enter Hackathon Demo →", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                    }
+                }
+            }
+        }
+
+        GlassCard(backgroundColor = Color(0xFF0E182B)) {
+            Text(
+                "🔒 Separate accounts keep Worker and Manager views clean. You can sign out & switch accounts anytime from the top bar.",
+                color = Color(0xFFBAE6FD),
+                fontSize = 11.sp,
+                lineHeight = 16.sp
+            )
+        }
+    }
+}
+
 @Composable
 fun OnboardingScreen(
     initialName: String,

@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.PhoneInTalk
@@ -60,15 +61,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.deliverex.live.ui.DeliverExViewModel
 import com.deliverex.live.ui.components.AppUpdateBanner
-import com.deliverex.live.ui.components.CameraCaptureDialog
+import com.deliverex.live.ui.components.DamagePhotoConfirmDialog
 import com.deliverex.live.ui.components.ExportPreviewDialog
-import com.deliverex.live.ui.components.OnboardingScreen
+import com.deliverex.live.ui.components.LoginScreen
 import com.deliverex.live.ui.components.OwnerPinDialog
 import com.deliverex.live.ui.components.ProofLightboxDialog
-import com.deliverex.live.ui.components.RoleSwitcherBar
 import com.deliverex.live.ui.components.ServerAndPrivacyDialog
 import com.deliverex.live.ui.components.StatusPill
 import com.deliverex.live.ui.components.WorkerLogoBadge
+import com.deliverex.live.ui.components.createTempCameraUri
+import com.deliverex.live.ui.components.decodeBitmapFromUri
 import com.deliverex.live.update.AppNotificationManager
 import com.deliverex.live.ui.screens.InsightsRoiScreen
 import com.deliverex.live.ui.screens.LiveCallScreen
@@ -128,11 +130,35 @@ fun DeliverExRootApp(
 
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var showSettings by remember { mutableStateOf(false) }
-    var showCameraDialog by remember { mutableStateOf(false) }
+    var pendingCameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var pendingProofBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     var zoomedProofUrl by remember { mutableStateOf<String?>(null) }
 
     var pendingActionAfterMic by remember { mutableStateOf<(() -> Unit)?>(null) }
     var pendingActionAfterCam by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    val nativeCameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { ok ->
+        val uri = pendingCameraUri
+        if (ok && uri != null) {
+            pendingProofBitmap = decodeBitmapFromUri(context, uri)
+        }
+    }
+
+    val galleryProofLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            pendingProofBitmap = decodeBitmapFromUri(context, uri)
+        }
+    }
+
+    fun launchNativeCamera() {
+        val uri = createTempCameraUri(context)
+        pendingCameraUri = uri
+        nativeCameraLauncher.launch(uri)
+    }
 
     val micPermLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -218,15 +244,33 @@ fun DeliverExRootApp(
                 )
         ) {
             if (!state.onboardingCompleted) {
-                OnboardingScreen(
+                LoginScreen(
                     initialName = state.driverName,
                     initialLanguage = state.preferredLanguage,
-                    onComplete = { role, name, lang ->
-                        vm.completeOnboarding(role, name, lang)
-                        selectedTab = if (role == "MANAGER") 2 else 0
+                    onWorkerLogin = { name, lang ->
+                        vm.loginAsWorker(name, lang)
+                        selectedTab = 0
+                    },
+                    onManagerLogin = { pin, onResult ->
+                        vm.loginAsManager(pin) { ok, err ->
+                            if (ok) selectedTab = 2
+                            onResult(ok, err)
+                        }
+                    },
+                    onDemoLogin = {
+                        vm.loginAsDemo()
+                        selectedTab = 0
                     }
                 )
             } else {
+                // Keep selectedTab valid for current role
+                LaunchedEffect(state.userRole) {
+                    when (state.userRole) {
+                        "DRIVER" -> if (selectedTab !in listOf(0, 1)) selectedTab = 0
+                        "MANAGER" -> if (selectedTab !in listOf(2, 3)) selectedTab = 2
+                    }
+                }
+
                 Scaffold(
                     containerColor = Color.Transparent,
                     snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -237,80 +281,89 @@ fun DeliverExRootApp(
                                 titleContentColor = Color.White
                             ),
                             title = {
-                                Column {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        WorkerLogoBadge(size = 32.dp)
-                                        Spacer(Modifier.width(8.dp))
-                                        Text("Raju Bhai", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-                                        Spacer(Modifier.width(8.dp))
-                                        StatusPill(
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    WorkerLogoBadge(size = 32.dp)
+                                    Spacer(Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = when (state.userRole) {
+                                                "MANAGER" -> "Priya • Manager"
+                                                "DEMO" -> "Raju Bhai • Demo"
+                                                else -> "Raju Bhai"
+                                            },
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 16.sp
+                                        )
+                                        Text(
                                             text = when {
-                                                state.backendConnected && state.health.geminiConfigured -> "● Live AI"
+                                                state.backendConnected && state.health.geminiConfigured -> "● Live AI Ready"
                                                 state.backendConnected -> "● Connected"
                                                 else -> "● Practice Mode"
                                             },
-                                            color = if (state.backendConnected && state.health.geminiConfigured) pal.success else pal.warning
+                                            color = if (state.backendConnected && state.health.geminiConfigured) pal.success else pal.warning,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold
                                         )
                                     }
                                 }
                             },
                             actions = {
                                 IconButton(onClick = { vm.refreshFromServer() }) {
-                                    Icon(Icons.Default.Refresh, contentDescription = "Sync backend", tint = pal.cyan)
+                                    Icon(Icons.Default.Refresh, contentDescription = "Sync", tint = pal.cyan)
                                 }
                                 IconButton(onClick = { showSettings = true }) {
                                     Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
+                                }
+                                IconButton(onClick = { vm.logout() }) {
+                                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Switch Account", tint = pal.warning)
                                 }
                             }
                         )
                     },
                     bottomBar = {
                         NavigationBar(containerColor = Color(0xEE09101E)) {
-                            NavigationBarItem(
-                                selected = selectedTab == 0,
-                                onClick = { selectedTab = 0 },
-                                icon = { Icon(Icons.Default.PhoneInTalk, contentDescription = null) },
-                                label = { Text("Talk", fontSize = 11.sp) }
-                            )
-                            NavigationBarItem(
-                                selected = selectedTab == 1,
-                                onClick = { selectedTab = 1 },
-                                icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null) },
-                                label = { Text("WhatsApp", fontSize = 11.sp) }
-                            )
-                            NavigationBarItem(
-                                selected = selectedTab == 2,
-                                onClick = { selectedTab = 2 },
-                                icon = {
-                                    BadgedBox(
-                                        badge = {
-                                            if (pendingApprovals > 0) {
-                                                Badge { Text(pendingApprovals.toString()) }
+                            if (state.userRole == "DRIVER" || state.userRole == "DEMO") {
+                                NavigationBarItem(
+                                    selected = selectedTab == 0,
+                                    onClick = { selectedTab = 0 },
+                                    icon = { Icon(Icons.Default.PhoneInTalk, contentDescription = null) },
+                                    label = { Text("Talk", fontSize = 11.sp) }
+                                )
+                                NavigationBarItem(
+                                    selected = selectedTab == 1,
+                                    onClick = { selectedTab = 1 },
+                                    icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null) },
+                                    label = { Text("WhatsApp", fontSize = 11.sp) }
+                                )
+                            }
+                            if (state.userRole == "MANAGER" || state.userRole == "DEMO") {
+                                NavigationBarItem(
+                                    selected = selectedTab == 2,
+                                    onClick = { selectedTab = 2 },
+                                    icon = {
+                                        BadgedBox(
+                                            badge = {
+                                                if (pendingApprovals > 0) {
+                                                    Badge { Text(pendingApprovals.toString()) }
+                                                }
                                             }
+                                        ) {
+                                            Icon(Icons.Default.AdminPanelSettings, contentDescription = null)
                                         }
-                                    ) {
-                                        Icon(Icons.Default.AdminPanelSettings, contentDescription = null)
-                                    }
-                                },
-                                label = { Text("Approvals", fontSize = 11.sp) }
-                            )
-                            NavigationBarItem(
-                                selected = selectedTab == 3,
-                                onClick = { selectedTab = 3 },
-                                icon = { Icon(Icons.Default.Analytics, contentDescription = null) },
-                                label = { Text("Insights", fontSize = 11.sp) }
-                            )
+                                    },
+                                    label = { Text("Approvals", fontSize = 11.sp) }
+                                )
+                                NavigationBarItem(
+                                    selected = selectedTab == 3,
+                                    onClick = { selectedTab = 3 },
+                                    icon = { Icon(Icons.Default.Analytics, contentDescription = null) },
+                                    label = { Text("Insights", fontSize = 11.sp) }
+                                )
+                            }
                         }
                     }
                 ) { innerPadding ->
                     Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-                        RoleSwitcherBar(
-                            activeRole = state.userRole,
-                            onSelectRole = { role ->
-                                vm.switchRole(role)
-                                if (role == "MANAGER") selectedTab = 2 else if (role == "DRIVER") selectedTab = 0
-                            }
-                        )
                         state.availableUpdate?.let { upd ->
                             AppUpdateBanner(
                                 versionName = upd.latestVersionName,
@@ -332,7 +385,9 @@ fun DeliverExRootApp(
                                     onToggleDemoControls = { vm.toggleDemoControls() },
                                     onRunGuidedStep = { step -> withMicPermission { vm.runGuidedStep(step, hasMicPermission()) } },
                                     onSendTextTurn = { text -> withMicPermission { vm.sendTextTurn(text, hasMicPermission()) } },
-                                    onOpenCameraProof = { withCamPermission { showCameraDialog = true } },
+                                    onOpenCameraProof = { withCamPermission { launchNativeCamera() } },
+                                    onOpenGalleryProof = { galleryProofLauncher.launch("image/*") },
+                                    onOpenProofZoom = { zoomedProofUrl = it },
                                     onSendSampleDamageProof = { vm.submitSampleTornBagsProof() }
                                 )
                                 1 -> WhatsAppOpsScreen(
@@ -349,7 +404,7 @@ fun DeliverExRootApp(
                                     onSetLedgerQuery = { vm.setLedgerQuery(it) },
                                     onSelectStore = {
                                         vm.setActiveStore(it)
-                                        selectedTab = 0
+                                        if (state.userRole == "DEMO") selectedTab = 0
                                     },
                                     onUnlockOwner = { vm.promptOwnerLogin() },
                                     onExportTallyXml = { vm.exportTallyXml() },
@@ -370,18 +425,24 @@ fun DeliverExRootApp(
             }
         }
 
-        if (showCameraDialog) {
-            CameraCaptureDialog(
+        pendingProofBitmap?.let { previewBmp ->
+            DamagePhotoConfirmDialog(
                 storeName = state.activeStore,
-                onCaptured = { bmp ->
-                    showCameraDialog = false
+                bitmap = previewBmp,
+                uploading = state.photoUploading,
+                onConfirmUpload = { bags ->
+                    pendingProofBitmap = null
                     vm.submitProofBitmap(
-                        bitmap = bmp,
-                        caption = "Field Camera POD (${state.activeStore})",
-                        damagedBags = 2
+                        bitmap = previewBmp,
+                        caption = "Torn Bags Photo (${state.activeStore})",
+                        damagedBags = bags
                     )
                 },
-                onDismiss = { showCameraDialog = false }
+                onRetake = {
+                    pendingProofBitmap = null
+                    withCamPermission { launchNativeCamera() }
+                },
+                onDismiss = { pendingProofBitmap = null }
             )
         }
 

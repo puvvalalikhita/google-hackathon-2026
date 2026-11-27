@@ -68,30 +68,36 @@ fun WhatsAppOpsScreen(
     val pal = LocalDeliverExPalette.current
     val context = LocalContext.current
     var inputText by remember { mutableStateOf("") }
+    var pendingCamUri by remember { mutableStateOf<Uri?>(null) }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    androidx.compose.runtime.LaunchedEffect(state.erpState.whatsappMessages.size) {
+        val count = state.erpState.whatsappMessages.size
+        if (count > 0) {
+            listState.animateScrollToItem(count - 1)
+        }
+    }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            val bmp = runCatching {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri))
-                } else {
-                    @Suppress("DEPRECATION")
-                    MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
-                }
-            }.getOrNull()
+            val bmp = com.deliverex.live.ui.components.decodeBitmapFromUri(context, uri)
             if (bmp != null) {
                 onSendWhatsApp("${state.activeStore} ke damaged bags ki photo proof attach ki hai", bmp)
             }
         }
     }
 
-    val cameraPreviewLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bmp: Bitmap? ->
-        if (bmp != null) {
-            onSendWhatsApp("${state.activeStore} ke damaged bags ka camera photo proof", bmp)
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        val uri = pendingCamUri
+        if (success && uri != null) {
+            val bmp = com.deliverex.live.ui.components.decodeBitmapFromUri(context, uri)
+            if (bmp != null) {
+                onSendWhatsApp("${state.activeStore} ke damaged bags ka camera photo proof", bmp)
+            }
         }
     }
 
@@ -151,7 +157,11 @@ fun WhatsAppOpsScreen(
                 label = { Text("Ask Balance", fontSize = 11.sp) }
             )
             AssistChip(
-                onClick = { cameraPreviewLauncher.launch(null) },
+                onClick = {
+                    val uri = com.deliverex.live.ui.components.createTempCameraUri(context)
+                    pendingCamUri = uri
+                    cameraLauncher.launch(uri)
+                },
                 leadingIcon = { Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp)) },
                 label = { Text("📷 Photo", fontSize = 11.sp) }
             )
@@ -165,6 +175,7 @@ fun WhatsAppOpsScreen(
         Spacer(Modifier.height(8.dp))
 
         LazyColumn(
+            state = listState,
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -206,14 +217,15 @@ fun WhatsAppOpsScreen(
             Spacer(Modifier.width(8.dp))
             IconButton(
                 onClick = {
-                    if (inputText.isNotBlank()) {
+                    if (inputText.isNotBlank() && !state.waSending) {
                         onSendWhatsApp(inputText, null)
                         inputText = ""
                     }
                 },
+                enabled = !state.waSending,
                 modifier = Modifier
                     .size(48.dp)
-                    .background(pal.success, RoundedCornerShape(14.dp))
+                    .background(if (state.waSending) Color(0xFF334155) else pal.success, RoundedCornerShape(14.dp))
             ) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send WhatsApp", tint = Color(0xFF070B14))
             }
@@ -266,7 +278,7 @@ private fun WhatsAppBubble(
                     text = when {
                         isDriver -> "🚚 ${msg.driverName}"
                         isManager -> "👩‍💼 Priya Sharma (Area Manager)"
-                        else -> msg.metadata.senderLabel ?: "DeliverEx Official Ops"
+                        else -> msg.metadata.senderLabel ?: "Raju Bhai Official Ops"
                     },
                     color = when {
                         isManager -> pal.warning

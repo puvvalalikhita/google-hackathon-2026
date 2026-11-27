@@ -41,6 +41,8 @@ class LiveAudioEngine(private val context: Context) {
 
     private var audioTrack: AudioTrack? = null
     private val trackLock = Any()
+    private val playbackQueue = kotlinx.coroutines.channels.Channel<ByteArray>(capacity = 96)
+    private var playbackJob: Job? = null
     @Volatile
     private var aiSpeakingUntilMs: Long = 0L
 
@@ -57,6 +59,24 @@ class LiveAudioEngine(private val context: Context) {
                 val res = tts?.setLanguage(Locale("en", "IN"))
                 ttsReady = res != TextToSpeech.LANG_MISSING_DATA && res != TextToSpeech.LANG_NOT_SUPPORTED
                 tts?.setSpeechRate(1.06f)
+            }
+        }
+        startPlaybackWorker()
+    }
+
+    private fun startPlaybackWorker() {
+        playbackJob?.cancel()
+        playbackJob = scope.launch(Dispatchers.IO) {
+            for (bytes in playbackQueue) {
+                synchronized(trackLock) {
+                    runCatching {
+                        val track = ensureAudioTrack()
+                        if (track.playState != AudioTrack.PLAYSTATE_PLAYING) {
+                            track.play()
+                        }
+                        track.write(bytes, 0, bytes.size)
+                    }
+                }
             }
         }
     }
@@ -166,16 +186,9 @@ class LiveAudioEngine(private val context: Context) {
             energySum += abs(sample / 32768.0)
         }
         val avgEnergy = if (sampleCount > 0) (energySum / sampleCount * 6.0).toFloat().coerceIn(0.15f, 1f) else 0.2f
-
-        synchronized(trackLock) {
-            val track = ensureAudioTrack()
-            if (track.playState != AudioTrack.PLAYSTATE_PLAYING) {
-                track.play()
-            }
-            track.write(bytes, 0, bytes.size)
-            val durationMs = (sampleCount * 1000L) / 24000L
-            aiSpeakingUntilMs = System.currentTimeMillis() + durationMs + 350L
-        }
+        val durationMs = (sampleCount * 1000L) / 24000L
+        aiSpeakingUntilMs = maxOf(aiSpeakingUntilMs, System.currentTimeMillis()) + durationMs + 180L
+        playbackQueue.trySend(bytes)
         return avgEnergy
     }
 
@@ -190,10 +203,11 @@ class LiveAudioEngine(private val context: Context) {
             AudioFormat.ENCODING_PCM_16BIT
         ).coerceAtLeast(4800)
 
+        // Use USAGE_MEDIA so Live AI voice plays loud & clear on the phone speaker (not quiet earpiece)
         val track = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
             )
@@ -204,7 +218,7 @@ class LiveAudioEngine(private val context: Context) {
                     .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                     .build()
             )
-            .setBufferSizeInBytes(minBuf * 2)
+            .setBufferSizeInBytes(minBuf * 3)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .setSessionId(AudioManager.AUDIO_SESSION_ID_GENERATE)
             .build()
@@ -214,6 +228,9 @@ class LiveAudioEngine(private val context: Context) {
     }
 
     fun flushPlayback() {
+        while (playbackQueue.tryReceive().isSuccess) {
+            // Drain queued AI audio chunks immediately on barge-in
+        }
         synchronized(trackLock) {
             aiSpeakingUntilMs = 0L
             runCatching {
