@@ -46,7 +46,10 @@ fun ManagerOpsScreen(
     onOpenProofZoom: (String) -> Unit,
     onSetLedgerFilter: (LedgerFilter) -> Unit,
     onSetLedgerQuery: (String) -> Unit,
-    onSelectStore: (String) -> Unit
+    onSelectStore: (String) -> Unit,
+    onUnlockOwner: () -> Unit,
+    onExportTallyXml: () -> Unit,
+    onExportLedgerCsv: () -> Unit
 ) {
     val pal = LocalDeliverExPalette.current
     val erp = state.erpState
@@ -113,13 +116,30 @@ fun ManagerOpsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "PRIYA'S 1-TAP APPROVAL QUEUE",
+                    "PRIYA'S 1-TAP APPROVALS",
                     color = pal.primary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.ExtraBold,
                     fontFamily = FontFamily.Monospace
                 )
-                StatusPill("$pendingCount Pending", if (pendingCount > 0) pal.warning else pal.cyan)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        onClick = onUnlockOwner,
+                        shape = RoundedCornerShape(50),
+                        color = if (state.ownerAuthenticated) pal.success.copy(alpha = 0.18f) else pal.warning.copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, if (state.ownerAuthenticated) pal.success.copy(alpha = 0.5f) else pal.warning.copy(alpha = 0.5f))
+                    ) {
+                        Text(
+                            text = if (state.ownerAuthenticated) "🔓 Verified" else if (state.ownerAuthEnforced) "🔒 Unlock" else "🔓 Dev",
+                            color = if (state.ownerAuthenticated) pal.success else pal.warning,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                    StatusPill("$pendingCount Pending", if (pendingCount > 0) pal.warning else pal.cyan)
+                }
             }
         }
 
@@ -137,6 +157,7 @@ fun ManagerOpsScreen(
             items(erp.approvals, key = { it.approvalId }) { apr ->
                 ApprovalCard(
                     apr = apr,
+                    baseUrl = state.baseUrl,
                     onDecide = { decision -> onDecideApproval(apr.approvalId, decision) },
                     onZoomProof = { url -> onOpenProofZoom(url) }
                 )
@@ -183,13 +204,37 @@ fun ManagerOpsScreen(
         // 5. Tally / SAP Ledger Table
         item {
             GlassCard {
-                Text(
-                    "TALLY / SAP LIVE LEDGER",
-                    color = pal.primary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontFamily = FontFamily.Monospace
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "TALLY / SAP LIVE LEDGER",
+                        color = pal.primary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Surface(
+                            onClick = onExportTallyXml,
+                            shape = RoundedCornerShape(50),
+                            color = pal.cyan.copy(alpha = 0.18f),
+                            border = BorderStroke(1.dp, pal.cyan.copy(alpha = 0.45f))
+                        ) {
+                            Text("📥 Tally XML", color = pal.cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+                        }
+                        Surface(
+                            onClick = onExportLedgerCsv,
+                            shape = RoundedCornerShape(50),
+                            color = Color.White.copy(alpha = 0.1f),
+                            border = BorderStroke(1.dp, pal.borderGlass)
+                        ) {
+                            Text("📊 CSV", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+                        }
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = state.ledgerQuery,
@@ -317,6 +362,7 @@ private fun KpiMiniCard(
 @Composable
 private fun ApprovalCard(
     apr: ApprovalItem,
+    baseUrl: String,
     onDecide: (String) -> Unit,
     onZoomProof: (String) -> Unit
 ) {
@@ -362,6 +408,7 @@ private fun ApprovalCard(
             Spacer(Modifier.height(8.dp))
             Base64ProofImage(
                 dataUrl = apr.proofImage,
+                baseUrl = baseUrl,
                 modifier = Modifier.fillMaxWidth().height(120.dp),
                 onClick = { onZoomProof(apr.proofImage) }
             )

@@ -9,15 +9,33 @@ from typing import Any, Dict, Optional
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile, WebSocket
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from app.database import check_db_health, get_full_state, init_db
+from app.database import (
+    append_audit_log,
+    check_db_health,
+    get_all_ledger_entries,
+    get_audit_logs,
+    get_full_state,
+    get_storage_mode,
+    init_db,
+)
 from app.gemini_live import ACTIVE_SESSIONS, LiveBridgeSession
 from app.policies import COMPANY_POLICIES
+from app.security import (
+    extract_bearer,
+    get_owner_pin,
+    is_manager_auth_enforced,
+    issue_token,
+    require_owner_session,
+    verify_token,
+)
+from app.storage_gcp import get_gcs_bucket_name, read_proof_from_gcs
+from app.tally_export import build_ledger_csv, build_tally_prime_xml
 from app.tools import decide_approval, execute_tool, set_latest_visual_proof
 from app.tts import GREETING_TEXT, prewarm_common_tts, synthesize_speech_b64
 from app.whatsapp import process_whatsapp_voice_note, send_meta_whatsapp_message
@@ -97,9 +115,17 @@ class WhatsAppChatBody(BaseModel):
     active_store: Optional[str] = None
 
 
+class OwnerLoginBody(BaseModel):
+    pin: str
+    actor: str = "Priya Sharma (Area Manager)"
+
+
 @app.get("/")
 async def root():
-    return FileResponse(STATIC_DIR / "index.html")
+    return FileResponse(
+        STATIC_DIR / "index.html",
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+    )
 
 
 @app.get("/api/health")
@@ -108,6 +134,7 @@ async def health():
     wa_token = os.getenv("WHATSAPP_ACCESS_TOKEN", "").strip()
     use_vertex = is_vertex_configured(api_key)
     db_health = check_db_health()
+    audit_info = get_audit_logs(limit=1)
     return {
         "status": "ok" if db_health.get("ok") else "degraded",
         "gemini_configured": bool(api_key),
@@ -117,7 +144,104 @@ async def health():
         "whatsapp_configured": bool(wa_token and os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip()),
         "environment": os.getenv("ENVIRONMENT", "development").strip().lower(),
         "database_ok": db_health.get("ok", False),
+        "storage_mode": get_storage_mode(),
+        "gcs_bucket": get_gcs_bucket_name() or None,
+        "manager_auth_enforced": is_manager_auth_enforced(),
+        "audit_chain_verified": audit_info.get("chain_verified", True),
     }
+
+
+@app.post("/api/auth/login")
+async def api_auth_login(body: OwnerLoginBody):
+    if body.pin.strip() != get_owner_pin():
+        raise HTTPException(status_code=401, detail="Invalid Owner/Manager PIN")
+    token = issue_token(actor=body.actor, role="OWNER")
+    append_audit_log(
+        actor=body.actor,
+        role="OWNER",
+        action="OWNER_LOGIN",
+        target_id="auth-session",
+        summary=f"{body.actor} authenticated Manager/Owner session",
+    )
+    return {
+        "token": token,
+        "role": "OWNER",
+        "actor": body.actor,
+        "expires_in": 86400,
+    }
+
+
+@app.get("/api/auth/session")
+async def api_auth_session(
+    authorization: Optional[str] = Header(default=None),
+    x_owner_token: Optional[str] = Header(default=None),
+):
+    claims = verify_token(extract_bearer(authorization, x_owner_token))
+    enforced = is_manager_auth_enforced()
+    return {
+        "authenticated": bool(claims) or (not enforced),
+        "token_valid": bool(claims),
+        "auth_enforced": enforced,
+        "role": claims.get("role") if claims else ("OWNER" if not enforced else "GUEST"),
+        "actor": claims.get("sub") if claims else ("Local Dev" if not enforced else "Guest"),
+    }
+
+
+@app.get("/api/proofs/{proof_name}")
+async def api_get_proof(proof_name: str):
+    found = read_proof_from_gcs(proof_name)
+    if not found:
+        raise HTTPException(status_code=404, detail="Proof photo not found")
+    content, mime = found
+    return Response(
+        content=content,
+        media_type=mime,
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
+
+
+@app.get("/api/audit-logs")
+async def api_audit_logs(
+    limit: int = Query(default=40, ge=1, le=200),
+    _owner: Dict[str, Any] = Depends(require_owner_session),
+):
+    return get_audit_logs(limit=limit)
+
+
+@app.get("/api/ledger/export/tally.xml")
+async def api_export_tally_xml(owner: Dict[str, Any] = Depends(require_owner_session)):
+    entries = get_all_ledger_entries()
+    xml_data = build_tally_prime_xml(entries)
+    append_audit_log(
+        actor=owner.get("sub", "Priya Sharma"),
+        role="OWNER",
+        action="LEDGER_EXPORTED",
+        target_id="tally-xml",
+        summary=f"Exported {len(entries)} vouchers as TallyPrime XML",
+    )
+    return Response(
+        content=xml_data,
+        media_type="application/xml",
+        headers={"Content-Disposition": "attachment; filename=deliverex_tally_vouchers.xml"},
+    )
+
+
+@app.get("/api/ledger/export/ledger.csv")
+async def api_export_ledger_csv(owner: Dict[str, Any] = Depends(require_owner_session)):
+    entries = get_all_ledger_entries()
+    csv_data = build_ledger_csv(entries)
+    append_audit_log(
+        actor=owner.get("sub", "Priya Sharma"),
+        role="OWNER",
+        action="LEDGER_EXPORTED",
+        target_id="ledger-csv",
+        summary=f"Exported {len(entries)} ledger rows as CSV",
+    )
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=deliverex_ledger.csv"},
+    )
 
 
 @app.get("/api/go-live-check")
@@ -145,16 +269,24 @@ async def api_tts(body: TtsBody):
 
 
 @app.post("/api/reset")
-async def api_reset(x_admin_key: Optional[str] = Header(default=None)):
+async def api_reset(
+    x_admin_key: Optional[str] = Header(default=None),
+    authorization: Optional[str] = Header(default=None),
+    x_owner_token: Optional[str] = Header(default=None),
+):
     env_mode = os.getenv("ENVIRONMENT", "development").strip().lower()
     allow_demo_reset = os.getenv("ALLOW_DEMO_RESET", "true").strip().lower() == "true"
     admin_key = os.getenv("ADMIN_API_KEY", "").strip()
+    owner_claims = verify_token(extract_bearer(authorization, x_owner_token))
 
     if env_mode == "production" and not allow_demo_reset:
         if not admin_key or x_admin_key != admin_key:
             raise HTTPException(status_code=403, detail="Reset disabled in production without valid X-Admin-Key")
-    elif admin_key and env_mode == "production" and x_admin_key != admin_key:
-        raise HTTPException(status_code=403, detail="Invalid X-Admin-Key")
+    elif is_manager_auth_enforced():
+        valid_admin = bool(admin_key and x_admin_key == admin_key)
+        valid_owner = bool(owner_claims and owner_claims.get("role") in {"OWNER", "MANAGER"})
+        if not (valid_admin or valid_owner):
+            raise HTTPException(status_code=401, detail="Owner sign-in or valid X-Admin-Key required to reset")
 
     set_latest_visual_proof(None, "")
     reset_conversation_memory()
@@ -217,9 +349,13 @@ async def api_demo_tool(body: DemoToolBody):
 
 
 @app.post("/api/approvals/{approval_id}/decide")
-async def api_decide_approval(approval_id: str, body: ApprovalDecisionBody):
+async def api_decide_approval(
+    approval_id: str,
+    body: ApprovalDecisionBody,
+    owner: Dict[str, Any] = Depends(require_owner_session),
+):
     try:
-        res = decide_approval(approval_id, body.decision)
+        res = decide_approval(approval_id, body.decision, actor=owner.get("sub", "Priya Sharma (Area Manager)"))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 

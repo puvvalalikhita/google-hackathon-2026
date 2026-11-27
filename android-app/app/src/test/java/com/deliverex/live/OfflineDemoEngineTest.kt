@@ -31,5 +31,8 @@ class OfflineDemoEngineTest {
         val krishna = decision.state.customers.first { it.name == "Krishna Hardware" }
         assertEquals(0, krishna.balanceDue)
         assertEquals("SETTLED", krishna.status)
+        assertTrue(decision.state.auditSummary?.chainVerified == true)
+        assertTrue(engine.exportTallyXml().contains("<TALLYREQUEST>Import Data</TALLYREQUEST>"))
+        assertTrue(engine.exportLedgerCsv().contains("Entry ID,Timestamp,Driver"))
     }
 }

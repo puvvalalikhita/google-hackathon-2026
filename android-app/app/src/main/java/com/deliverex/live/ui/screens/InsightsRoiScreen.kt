@@ -151,7 +151,53 @@ fun InsightsRoiScreen(
             }
         }
 
-        // 4. Go-Live Readiness & Controls
+        // 4. Tamper-Evident Audit Vault & Cloud Persistence
+        state.erpState.auditSummary?.let { audit ->
+            item {
+                GlassCard(borderColor = if (audit.chainVerified) pal.success.copy(alpha = 0.45f) else pal.danger.copy(alpha = 0.6f)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "AUDIT VAULT (${(state.health.storageMode.ifBlank { audit.storageBackend }).uppercase()})",
+                            color = pal.cyan,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        StatusPill(
+                            text = if (audit.chainVerified) "SHA256 VERIFIED (${audit.totalCount})" else "TAMPER ALERT",
+                            color = if (audit.chainVerified) pal.success else pal.danger
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    audit.latest.take(4).forEach { entry ->
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0x550B1220),
+                            border = BorderStroke(1.dp, pal.borderGlass),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("${entry.auditId} • ${entry.action}", color = pal.cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                    Text(entry.role, color = pal.success, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                }
+                                Text(entry.summary, color = Color(0xFFE2E8F0), fontSize = 11.sp)
+                                Text("Actor: ${entry.actor} • ${entry.integrityHash.take(14)}...", color = Color(0xFF94A3B8), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 5. Go-Live Readiness & Controls
         item {
             GlassCard {
                 Text("PRODUCTION & SERVER CONTROLS", color = pal.cyan, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Monospace)

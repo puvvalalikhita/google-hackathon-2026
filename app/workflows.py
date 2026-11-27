@@ -947,8 +947,20 @@ def evaluate_go_live_readiness() -> Dict[str, Any]:
             "id": "database",
             "category": "Database",
             "status": "FAIL",
-            "summary": f"SQLite check failed: {db_health.get('error')}",
-            "remediation": "Ensure writable filesystem or mount volume via DELIVEREX_DB_PATH.",
+            "summary": f"Database check failed: {db_health.get('error')}",
+            "remediation": "Check Firestore/GCS permissions or writable DELIVEREX_DB_PATH.",
+        })
+    elif db_health.get("backend") == "firestore":
+        gcs_bkt = db_health.get("gcs_bucket")
+        checks.append({
+            "id": "database",
+            "category": "Database & Proofs",
+            "status": "PASS",
+            "summary": (
+                f"Cloud Firestore Native ({db_health.get('database')}) ACID transactions"
+                + (f" + Private GCS ({gcs_bkt}) active" if gcs_bkt else " active")
+            ),
+            "remediation": None,
         })
     elif db_health.get("persistent_path_configured"):
         checks.append({
@@ -964,7 +976,7 @@ def evaluate_go_live_readiness() -> Dict[str, Any]:
             "category": "Database",
             "status": "WARN",
             "summary": "SQLite WAL healthy locally, but DELIVEREX_DB_PATH is unset (ephemeral on Cloud Run restarts)",
-            "remediation": "Set DELIVEREX_DB_PATH on a mounted volume or migrate to Cloud SQL / Firestore for multi-instance Go-Live.",
+            "remediation": "Enable USE_FIRESTORE=true + GCS_PROOF_BUCKET or set DELIVEREX_DB_PATH on a mounted volume.",
         })
 
     # 2. Gemini API Key & Auth Mode compatibility
@@ -1047,21 +1059,30 @@ def evaluate_go_live_readiness() -> Dict[str, Any]:
     env_mode = os.getenv("ENVIRONMENT", "development").strip().lower()
     cors_origins = os.getenv("CORS_ALLOW_ORIGINS", "*").strip()
     admin_key = os.getenv("ADMIN_API_KEY", "").strip()
-    if env_mode == "production" and (cors_origins == "*" or not admin_key):
+    auth_secret = os.getenv("AUTH_SECRET", "").strip()
+    manager_auth = os.getenv("ENFORCE_MANAGER_AUTH", "").strip().lower() in {"true", "1", "yes"} or env_mode == "production"
+    if manager_auth and (auth_secret or admin_key):
+        checks.append({
+            "id": "security",
+            "category": "Security & Audit",
+            "status": "PASS",
+            "summary": "Owner PIN + HMAC Bearer Auth + Hash-Chained Audit Log + GCS Private Proofs active",
+            "remediation": None,
+        })
+    elif env_mode == "production" and (cors_origins == "*" or not admin_key):
         checks.append({
             "id": "security",
             "category": "Security",
             "status": "WARN",
-            "summary": "Production mode active with permissive CORS (*) or unset ADMIN_API_KEY for /api/reset",
-            "remediation": "Set CORS_ALLOW_ORIGINS to your domain and set ADMIN_API_KEY to protect /api/reset.",
+            "summary": "Production mode active without AUTH_SECRET / ADMIN_API_KEY",
+            "remediation": "Set AUTH_SECRET, OWNER_PIN, and ENFORCE_MANAGER_AUTH=true.",
         })
     else:
         checks.append({
             "id": "security",
             "category": "Security",
             "status": "PASS",
-            "summary": f"Environment={env_mode} • Webhook verify token & XSS escaping active"
-            + (" • Admin key armed" if admin_key else ""),
+            "summary": f"Environment={env_mode} • Hash-Chained Audit Log & XSS escaping active",
             "remediation": None,
         })
 

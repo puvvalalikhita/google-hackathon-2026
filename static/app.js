@@ -1,6 +1,19 @@
 // DeliverEx Live — 4D Glassmorphic Field Ops + Central Agent Live Screen
 
-let healthInfo = { gemini_configured: false, live_model: "", whatsapp_configured: false };
+let healthInfo = { gemini_configured: false, live_model: "", whatsapp_configured: false, storage_mode: "sqlite", manager_auth_enforced: false };
+let ownerToken = "";
+let ownerSessionState = { authenticated: false, auth_enforced: false, actor: "Guest" };
+let pendingAuthCallback = null;
+
+try {
+  ownerToken = localStorage.getItem("deliverex_owner_token") || "";
+} catch {}
+
+function getOwnerHeaders(extra = {}) {
+  const h = { ...extra };
+  if (ownerToken) h["Authorization"] = `Bearer ${ownerToken}`;
+  return h;
+}
 let liveReady = false;
 let wsWorkflowReady = false;
 let lastWorkflowTtfa = 310;
@@ -131,14 +144,23 @@ async function initApp() {
   setVoiceLoopStage("standby", "Voice catcher armed — ready to catch speech, run agents & ask back.");
 
   try {
-    const [hRes, sRes, glRes] = await Promise.all([
+    const [hRes, sRes, glRes, authRes] = await Promise.all([
       fetch("/api/health"),
       fetch("/api/state"),
       fetch("/api/go-live-check"),
+      fetch("/api/auth/session", { headers: getOwnerHeaders() }),
     ]);
     healthInfo = await hRes.json();
     const stateData = await sRes.json();
     const goLiveData = glRes.ok ? await glRes.json() : null;
+    if (authRes.ok) {
+      ownerSessionState = await authRes.json();
+      updateOwnerAuthUi();
+    }
+    const storagePill = document.getElementById("storageModePill");
+    if (storagePill && healthInfo.storage_mode) {
+      storagePill.textContent = healthInfo.storage_mode.toUpperCase();
+    }
 
     const badge = document.getElementById("modeBadge");
     if (healthInfo.gemini_configured) {
@@ -1575,14 +1597,112 @@ function setVoiceLoopStage(stage, captionText) {
   }
 }
 
+// --- OWNER AUTH, AUDIT VAULT & TALLYPRIME EXPORT ---
+function updateOwnerAuthUi() {
+  const btn = document.getElementById("ownerAuthBtn");
+  if (!btn) return;
+  if (ownerSessionState.token_valid) {
+    btn.textContent = "🔓 Priya Verified";
+    btn.className = "btn-tactile mono text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/45";
+  } else if (!ownerSessionState.auth_enforced) {
+    btn.textContent = "🔓 Dev Mode";
+    btn.className = "btn-tactile mono text-[10px] font-bold px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-400/45";
+  } else {
+    btn.textContent = "🔒 Unlock Priya";
+    btn.className = "btn-tactile mono text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-500/25 text-amber-200 border border-amber-400/55 animate-pulse";
+  }
+}
+
+function openOwnerPinModal(callback = null) {
+  pendingAuthCallback = callback;
+  document.getElementById("ownerPinModal")?.classList.remove("hidden");
+  setTimeout(() => document.getElementById("ownerPinInput")?.focus(), 40);
+}
+
+function closeOwnerPinModal() {
+  document.getElementById("ownerPinModal")?.classList.add("hidden");
+  pendingAuthCallback = null;
+}
+
+async function quickDemoOwnerUnlock() {
+  const inp = document.getElementById("ownerPinInput");
+  if (inp) inp.value = "4242";
+  await submitOwnerPin();
+}
+
+async function submitOwnerPin() {
+  const pin = (document.getElementById("ownerPinInput")?.value || "").trim();
+  if (!pin) return;
+  try {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin, actor: "Priya Sharma (Area Manager)" }),
+    });
+    if (!res.ok) {
+      showGlassToast("❌ Invalid PIN", "Enter the configured Owner PIN (demo: 4242).", "rose");
+      return;
+    }
+    const data = await res.json();
+    ownerToken = data.token || "";
+    try { localStorage.setItem("deliverex_owner_token", ownerToken); } catch {}
+    ownerSessionState = { authenticated: true, token_valid: true, auth_enforced: true, actor: data.actor };
+    updateOwnerAuthUi();
+    showGlassToast("🔓 Owner Authenticated", "Priya Sharma verified — approvals & Tally exports unlocked.", "emerald");
+    const cb = pendingAuthCallback;
+    closeOwnerPinModal();
+    if (cb) await cb();
+  } catch (err) {
+    showGlassToast("⚠️ Auth Error", err.message, "rose");
+  }
+}
+
+async function downloadWithOwnerAuth(url, filename) {
+  const res = await fetch(url, { headers: getOwnerHeaders() });
+  if (res.status === 401) {
+    openOwnerPinModal(() => downloadWithOwnerAuth(url, filename));
+    return;
+  }
+  if (!res.ok) {
+    showGlassToast("⚠️ Export Failed", `HTTP ${res.status}`, "rose");
+    return;
+  }
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  showGlassToast("📥 Export Ready", `Downloaded ${filename} + logged to Audit Vault.`, "emerald");
+  fetch("/api/state").then((r) => r.json()).then((d) => renderErpState(d.state)).catch(() => {});
+}
+
+function exportTallyXml() {
+  downloadWithOwnerAuth("/api/ledger/export/tally.xml", "deliverex_tally_vouchers.xml");
+}
+
+function exportLedgerCsv() {
+  downloadWithOwnerAuth("/api/ledger/export/ledger.csv", "deliverex_ledger.csv");
+}
+
 // --- PRIYA'S 1-TAP MANAGER APPROVAL (HITL) ---
 async function decideApproval(approvalId, decision) {
   try {
     const res = await fetch(`/api/approvals/${approvalId}/decide`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getOwnerHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ decision }),
     });
+    if (res.status === 401) {
+      openOwnerPinModal(() => decideApproval(approvalId, decision));
+      return;
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      showGlassToast("⚠️ Approval Error", err.detail || `HTTP ${res.status}`, "rose");
+      return;
+    }
     const data = await res.json();
     renderErpState(data.state);
 
@@ -2410,6 +2530,34 @@ function renderErpState(state) {
     wfEl.textContent = `Workflow: ${wf.workflow_stage || "IDLE"}${storeTag}`;
   }
 
+  // 7. Render Tamper-Evident Audit Vault
+  const auditSummary = state.audit_summary;
+  if (auditSummary) {
+    const sBadge = document.getElementById("auditStorageBadge");
+    if (sBadge) sBadge.textContent = `Storage: ${(healthInfo.storage_mode || auditSummary.storage_backend || "sqlite").toUpperCase()}`;
+    const cBadge = document.getElementById("auditChainBadge");
+    if (cBadge) {
+      const ok = Boolean(auditSummary.chain_verified);
+      cBadge.textContent = ok ? `Hash Chain: Verified (${auditSummary.total_count})` : "Hash Chain: Tamper Alert!";
+      cBadge.className = ok
+        ? "mono text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40"
+        : "mono text-xs font-bold px-3 py-1 rounded-full bg-rose-500/20 text-rose-200 border border-rose-400/40";
+    }
+    const auditBox = document.getElementById("auditVaultList");
+    if (auditBox) {
+      auditBox.innerHTML = (auditSummary.latest || []).map((a) => `
+        <div class="subtile-4d p-3 rounded-2xl border-white/10">
+          <div class="flex items-center justify-between gap-2">
+            <span class="mono text-[11px] font-bold text-cyan-300">${escapeHtml(a.audit_id)} &bull; ${escapeHtml(a.action)}</span>
+            <span class="mono text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-200 border border-emerald-400/30">${escapeHtml(a.role)}</span>
+          </div>
+          <p class="text-xs text-slate-200 mt-1">${escapeHtml(a.summary)}</p>
+          <div class="text-[10px] text-slate-400 mt-1 mono truncate">Actor: ${escapeHtml(a.actor)} &bull; SHA256: ${escapeHtml((a.integrity_hash || "").slice(0, 14))}...</div>
+        </div>
+      `).join("");
+    }
+  }
+
   updateRoleStatusDashboard();
   updateRouteRadarMap(cachedErpState);
 }
@@ -3200,8 +3348,13 @@ async function resetDemo() {
   if (waIn) waIn.value = "";
   refreshPoliciesHighlight();
 
-  const res = await fetch("/api/reset", { method: "POST" }).then((r) => r.json());
-  renderErpState(res.state);
+  const resp = await fetch("/api/reset", { method: "POST", headers: getOwnerHeaders() });
+  if (resp.status === 401) {
+    openOwnerPinModal(() => resetDemo());
+    return;
+  }
+  const res = await resp.json();
+  if (res.state) renderErpState(res.state);
 }
 
 // --- 2026 3D FLUID PLASMA ORB + LIQUID-SILK VOICE CATCHER RIBBONS ---

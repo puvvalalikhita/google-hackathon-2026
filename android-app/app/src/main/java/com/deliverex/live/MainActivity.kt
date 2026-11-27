@@ -59,6 +59,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.deliverex.live.ui.DeliverExViewModel
 import com.deliverex.live.ui.components.CameraCaptureDialog
+import com.deliverex.live.ui.components.ExportPreviewDialog
+import com.deliverex.live.ui.components.OwnerPinDialog
 import com.deliverex.live.ui.components.ProofLightboxDialog
 import com.deliverex.live.ui.components.ServerAndPrivacyDialog
 import com.deliverex.live.ui.components.StatusPill
@@ -263,7 +265,10 @@ fun DeliverExRootApp(vm: DeliverExViewModel = viewModel()) {
                             onSelectStore = {
                                 vm.setActiveStore(it)
                                 selectedTab = 0
-                            }
+                            },
+                            onUnlockOwner = { vm.promptOwnerLogin() },
+                            onExportTallyXml = { vm.exportTallyXml() },
+                            onExportLedgerCsv = { vm.exportLedgerCsv() }
                         )
                         3 -> InsightsRoiScreen(
                             state = state,
@@ -294,7 +299,23 @@ fun DeliverExRootApp(vm: DeliverExViewModel = viewModel()) {
         zoomedProofUrl?.let { url ->
             ProofLightboxDialog(
                 dataUrl = url,
+                baseUrl = state.baseUrl,
                 onDismiss = { zoomedProofUrl = null }
+            )
+        }
+
+        if (state.showOwnerPinDialog) {
+            OwnerPinDialog(
+                onUnlock = { pin -> vm.unlockOwnerWithPin(pin) },
+                onDismiss = { vm.dismissOwnerPinDialog() }
+            )
+        }
+
+        if (state.exportedTitle != null && state.exportedContent != null) {
+            ExportPreviewDialog(
+                title = state.exportedTitle!!,
+                content = state.exportedContent!!,
+                onDismiss = { vm.dismissExportDialog() }
             )
         }
 

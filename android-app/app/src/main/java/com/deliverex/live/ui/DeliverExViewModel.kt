@@ -22,6 +22,7 @@ import com.deliverex.live.data.model.TranscriptMessage
 import com.deliverex.live.data.remote.DeliverExApiClient
 import com.deliverex.live.data.remote.LiveCallWebSocketClient
 import com.deliverex.live.data.remote.LiveWsEvent
+import com.deliverex.live.data.remote.OwnerAuthRequiredException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -76,6 +77,12 @@ data class DeliverExUiState(
     val waRecording: Boolean = false,
     val waSending: Boolean = false,
     val roi: RoiCalculation = RoiCalculation(),
+    val ownerAuthenticated: Boolean = false,
+    val ownerAuthEnforced: Boolean = false,
+    val ownerActor: String = "Priya Sharma",
+    val showOwnerPinDialog: Boolean = false,
+    val exportedTitle: String? = null,
+    val exportedContent: String? = null,
     val toastMessage: String? = null,
     val isRefreshing: Boolean = false
 )
@@ -83,7 +90,11 @@ data class DeliverExUiState(
 class DeliverExViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = ServerPreferences(application)
     private val offlineEngine = OfflineDemoEngine()
-    private val apiClient = DeliverExApiClient { prefs.baseUrl }
+    private val apiClient = DeliverExApiClient(
+        baseUrlProvider = { prefs.baseUrl },
+        ownerTokenProvider = { prefs.ownerToken }
+    )
+    private var pendingOwnerAction: (() -> Unit)? = null
     private val wsClient = LiveCallWebSocketClient(apiClient.httpClient, apiClient.json)
     private val audioEngine = LiveAudioEngine(application)
 
@@ -119,8 +130,13 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
                 val health = apiClient.fetchHealth()
                 val env = apiClient.fetchState()
                 val goLive = runCatching { apiClient.fetchGoLiveCheck() }.getOrNull()
-                Triple(health, env, goLive)
-            }.onSuccess { (health, env, goLive) ->
+                val authSession = runCatching { apiClient.fetchAuthSession() }.getOrNull()
+                listOf(health, env, goLive, authSession)
+            }.onSuccess { results ->
+                val health = results[0] as HealthResponse
+                val env = results[1] as com.deliverex.live.data.model.StateEnvelope
+                val goLive = results[2] as GoLiveCheckResponse?
+                val authSession = results[3] as com.deliverex.live.data.model.AuthSessionResponse?
                 _uiState.update {
                     it.copy(
                         backendConnected = true,
@@ -130,6 +146,9 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
                         policies = env.policies,
                         goLiveCheck = goLive,
                         latestReceipt = env.state.receipts.firstOrNull(),
+                        ownerAuthenticated = authSession?.tokenValid == true,
+                        ownerAuthEnforced = authSession?.authEnforced ?: health.managerAuthEnforced,
+                        ownerActor = authSession?.actor ?: "Priya Sharma",
                         isRefreshing = false
                     )
                 }
@@ -600,7 +619,11 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
                         }
                     }
                     .onFailure { err ->
-                        _uiState.update { it.copy(toastMessage = "Approval error: ${err.message}") }
+                        if (err is OwnerAuthRequiredException) {
+                            promptOwnerLogin { decideApproval(approvalId, decision) }
+                        } else {
+                            _uiState.update { it.copy(toastMessage = "Approval error: ${err.message}") }
+                        }
                     }
             } else {
                 val res = offlineEngine.decideApproval(approvalId, decision)
@@ -744,7 +767,11 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
                         }
                     }
                     .onFailure { err ->
-                        _uiState.update { it.copy(toastMessage = "Reset failed: ${err.message}") }
+                        if (err is OwnerAuthRequiredException) {
+                            promptOwnerLogin { resetDemo() }
+                        } else {
+                            _uiState.update { it.copy(toastMessage = "Reset failed: ${err.message}") }
+                        }
                     }
             } else {
                 val env = offlineEngine.reset()
@@ -762,6 +789,91 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
         }
+    }
+
+    fun promptOwnerLogin(onUnlocked: (() -> Unit)? = null) {
+        pendingOwnerAction = onUnlocked
+        _uiState.update { it.copy(showOwnerPinDialog = true) }
+    }
+
+    fun dismissOwnerPinDialog() {
+        pendingOwnerAction = null
+        _uiState.update { it.copy(showOwnerPinDialog = false) }
+    }
+
+    fun unlockOwnerWithPin(pin: String) {
+        viewModelScope.launch {
+            if (!_uiState.value.backendConnected || prefs.offlineDemoMode) {
+                _uiState.update {
+                    it.copy(
+                        ownerAuthenticated = true,
+                        ownerActor = "Priya Sharma (Demo)",
+                        showOwnerPinDialog = false,
+                        toastMessage = "🔓 Owner mode unlocked"
+                    )
+                }
+                pendingOwnerAction?.invoke()
+                pendingOwnerAction = null
+                return@launch
+            }
+            runCatching { apiClient.loginOwner(pin) }
+                .onSuccess { resp ->
+                    prefs.ownerToken = resp.token
+                    _uiState.update {
+                        it.copy(
+                            ownerAuthenticated = true,
+                            ownerActor = resp.actor,
+                            showOwnerPinDialog = false,
+                            toastMessage = "🔓 ${resp.actor} verified"
+                        )
+                    }
+                    pendingOwnerAction?.invoke()
+                    pendingOwnerAction = null
+                }
+                .onFailure { err ->
+                    _uiState.update { it.copy(toastMessage = err.message ?: "Invalid Owner PIN") }
+                }
+        }
+    }
+
+    fun exportTallyXml() {
+        viewModelScope.launch {
+            if (_uiState.value.backendConnected && !prefs.offlineDemoMode) {
+                runCatching { apiClient.exportTallyXml() }
+                    .onSuccess { xml ->
+                        _uiState.update { it.copy(exportedTitle = "TallyPrime XML Vouchers", exportedContent = xml) }
+                        refreshFromServer()
+                    }
+                    .onFailure { err ->
+                        if (err is OwnerAuthRequiredException) promptOwnerLogin { exportTallyXml() }
+                        else _uiState.update { it.copy(toastMessage = "Tally export error: ${err.message}") }
+                    }
+            } else {
+                _uiState.update { it.copy(exportedTitle = "TallyPrime XML Vouchers", exportedContent = offlineEngine.exportTallyXml()) }
+            }
+        }
+    }
+
+    fun exportLedgerCsv() {
+        viewModelScope.launch {
+            if (_uiState.value.backendConnected && !prefs.offlineDemoMode) {
+                runCatching { apiClient.exportLedgerCsv() }
+                    .onSuccess { csv ->
+                        _uiState.update { it.copy(exportedTitle = "DeliverEx Ledger CSV", exportedContent = csv) }
+                        refreshFromServer()
+                    }
+                    .onFailure { err ->
+                        if (err is OwnerAuthRequiredException) promptOwnerLogin { exportLedgerCsv() }
+                        else _uiState.update { it.copy(toastMessage = "CSV export error: ${err.message}") }
+                    }
+            } else {
+                _uiState.update { it.copy(exportedTitle = "DeliverEx Ledger CSV", exportedContent = offlineEngine.exportLedgerCsv()) }
+            }
+        }
+    }
+
+    fun dismissExportDialog() {
+        _uiState.update { it.copy(exportedTitle = null, exportedContent = null) }
     }
 
     fun setLedgerFilter(filter: LedgerFilter) {

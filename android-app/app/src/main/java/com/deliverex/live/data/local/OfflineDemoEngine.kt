@@ -2,6 +2,8 @@ package com.deliverex.live.data.local
 
 import com.deliverex.live.data.model.ApprovalDecisionResponse
 import com.deliverex.live.data.model.ApprovalItem
+import com.deliverex.live.data.model.AuditLogEntry
+import com.deliverex.live.data.model.AuditSummary
 import com.deliverex.live.data.model.Customer
 import com.deliverex.live.data.model.ErpState
 import com.deliverex.live.data.model.FrontlineGuidance
@@ -127,8 +129,44 @@ class OfflineDemoEngine {
         whatsappSession = WhatsAppSession(
             activeCustomerName = activeCustomerName,
             workflowStage = workflowStage
+        ),
+        auditSummary = AuditSummary(
+            totalCount = ledger.size + approvals.size + 1,
+            chainVerified = true,
+            storageBackend = "offline_demo",
+            latest = listOf(
+                AuditLogEntry(
+                    auditId = "AUD-0000${ledger.size + approvals.size + 1}",
+                    seq = ledger.size + approvals.size + 1,
+                    timestamp = nowStr(),
+                    actor = "DeliverEx Ops",
+                    role = "SYSTEM",
+                    action = if (approvals.any { it.status == "APPROVED" }) "APPROVAL_DECIDED" else "DELIVERY_RECORDED",
+                    targetId = ledger.firstOrNull()?.entryId ?: "deliverex-erp",
+                    summary = "${ledger.size} ledger entries • ${approvals.count { it.status == "PENDING" }} pending HITL",
+                    integrityHash = "sha256_demo_verified_chain"
+                )
+            )
         )
     )
+
+    fun exportTallyXml(): String {
+        val sb = StringBuilder()
+        sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<ENVELOPE><HEADER><TALLYREQUEST>Import Data</TALLYREQUEST></HEADER><BODY><IMPORTDATA><REQUESTDATA>\n")
+        ledger.forEach { r ->
+            sb.append("  <TALLYMESSAGE><VOUCHER VCHTYPE=\"Receipt\" ACTION=\"Create\"><VOUCHERNUMBER>${r.entryId}</VOUCHERNUMBER><PARTYLEDGERNAME>${r.customerName}</PARTYLEDGERNAME><AMOUNT>${r.cashReceived}</AMOUNT></VOUCHER></TALLYMESSAGE>\n")
+        }
+        sb.append("</REQUESTDATA></IMPORTDATA></BODY></ENVELOPE>")
+        return sb.toString()
+    }
+
+    fun exportLedgerCsv(): String {
+        val sb = StringBuilder("Entry ID,Timestamp,Driver,Customer,Invoice,Delivered,Damaged,Cash INR,Discount INR,Status\n")
+        ledger.forEach { r ->
+            sb.append("${r.entryId},${r.timestamp},${r.driverName},${r.customerName},${r.invoiceId},${r.deliveredQty},${r.damagedQty},${r.cashReceived},${r.discountAmount},${r.tallyStatus}\n")
+        }
+        return sb.toString()
+    }
 
     data class OfflineTurnOutput(
         val userText: String,

@@ -41,11 +41,18 @@ class ServerPreferences(context: Context) {
             prefs.edit().putBoolean(KEY_OFFLINE_DEMO, value).apply()
         }
 
+    var ownerToken: String
+        get() = prefs.getString(KEY_OWNER_TOKEN, "") ?: ""
+        set(value) {
+            prefs.edit().putString(KEY_OWNER_TOKEN, value.trim()).apply()
+        }
+
     companion object {
         private const val KEY_BASE_URL = "base_url"
         private const val KEY_THEME = "theme_key"
         private const val KEY_DRIVER_NAME = "driver_name"
         private const val KEY_ACTIVE_STORE = "active_store"
         private const val KEY_OFFLINE_DEMO = "offline_demo_mode"
+        private const val KEY_OWNER_TOKEN = "owner_token"
     }
 }

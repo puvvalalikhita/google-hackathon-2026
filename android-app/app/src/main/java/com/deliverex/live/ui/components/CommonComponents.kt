@@ -1,9 +1,14 @@
 package com.deliverex.live.ui.components
 
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.util.Base64
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -43,7 +48,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PrivacyTip
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -55,6 +62,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -235,6 +243,7 @@ fun LatencySparkline(
 
 fun decodeDataUrlBitmap(dataUrl: String?): Bitmap? {
     if (dataUrl.isNullOrBlank()) return null
+    if (dataUrl.startsWith("/") || dataUrl.startsWith("http")) return null
     val raw = if (dataUrl.contains(",")) dataUrl.substringAfter(",") else dataUrl
     return runCatching {
         val bytes = Base64.decode(raw, Base64.DEFAULT)
@@ -242,16 +251,35 @@ fun decodeDataUrlBitmap(dataUrl: String?): Bitmap? {
     }.getOrNull()
 }
 
+suspend fun loadProofBitmap(dataUrlOrPath: String, baseUrl: String): Bitmap? = withContext(Dispatchers.IO) {
+    decodeDataUrlBitmap(dataUrlOrPath)?.let { return@withContext it }
+    if (!dataUrlOrPath.startsWith("/") && !dataUrlOrPath.startsWith("http")) return@withContext null
+    val fullUrl = if (dataUrlOrPath.startsWith("http")) dataUrlOrPath else "${baseUrl.trimEnd('/')}$dataUrlOrPath"
+    runCatching {
+        val conn = (URL(fullUrl).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 5000
+            readTimeout = 8000
+        }
+        conn.inputStream.use { BitmapFactory.decodeStream(it) }
+    }.getOrNull()
+}
+
 @Composable
 fun Base64ProofImage(
     dataUrl: String,
+    baseUrl: String = "",
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null
 ) {
-    val bmp = remember(dataUrl) { decodeDataUrlBitmap(dataUrl) }
-    if (bmp != null) {
+    var bmp by remember(dataUrl, baseUrl) { mutableStateOf(decodeDataUrlBitmap(dataUrl)) }
+    LaunchedEffect(dataUrl, baseUrl) {
+        if (bmp == null) {
+            bmp = loadProofBitmap(dataUrl, baseUrl)
+        }
+    }
+    bmp?.let { loaded ->
         Image(
-            bitmap = bmp.asImageBitmap(),
+            bitmap = loaded.asImageBitmap(),
             contentDescription = "Visual Proof of Delivery",
             contentScale = ContentScale.Crop,
             modifier = modifier
@@ -264,9 +292,15 @@ fun Base64ProofImage(
 @Composable
 fun ProofLightboxDialog(
     dataUrl: String,
+    baseUrl: String = "",
     onDismiss: () -> Unit
 ) {
-    val bmp = remember(dataUrl) { decodeDataUrlBitmap(dataUrl) }
+    var bmp by remember(dataUrl, baseUrl) { mutableStateOf(decodeDataUrlBitmap(dataUrl)) }
+    LaunchedEffect(dataUrl, baseUrl) {
+        if (bmp == null) {
+            bmp = loadProofBitmap(dataUrl, baseUrl)
+        }
+    }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -280,9 +314,9 @@ fun ProofLightboxDialog(
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                if (bmp != null) {
+                bmp?.let { loaded ->
                     Image(
-                        bitmap = bmp.asImageBitmap(),
+                        bitmap = loaded.asImageBitmap(),
                         contentDescription = "Zoomed Proof Photo",
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
@@ -549,6 +583,131 @@ fun ServerAndPrivacyDialog(
                     ) {
                         Text("Save & Sync", fontWeight = FontWeight.Bold)
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun OwnerPinDialog(
+    onUnlock: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val pal = LocalDeliverExPalette.current
+    var pin by remember { mutableStateOf("") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(22.dp),
+            color = Color(0xFF0C1426),
+            border = BorderStroke(1.dp, pal.borderGlass)
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = pal.primary, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Owner Auth (Priya Sharma)", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                }
+                Text(
+                    "Authenticate to authorize 1-Tap Approvals, export TallyPrime XML vouchers, and view Audit Vault hashes.",
+                    color = Color(0xFFCBD5E1),
+                    fontSize = 12.sp
+                )
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { pin = it },
+                    label = { Text("Owner PIN (demo: 4242)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { onUnlock("4242") },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Demo PIN (4242)", fontSize = 11.sp)
+                    }
+                    Button(
+                        onClick = { if (pin.isNotBlank()) onUnlock(pin) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = pal.primary)
+                    ) {
+                        Text("Unlock", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ExportPreviewDialog(
+    title: String,
+    content: String,
+    onDismiss: () -> Unit
+) {
+    val pal = LocalDeliverExPalette.current
+    val context = LocalContext.current
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            shape = RoundedCornerShape(22.dp),
+            color = Color(0xFF0C1426),
+            border = BorderStroke(1.dp, pal.borderGlass)
+        ) {
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(title, color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFF060A13),
+                    border = BorderStroke(1.dp, pal.borderGlass)
+                ) {
+                    Text(
+                        text = content,
+                        color = Color(0xFFBAE6FD),
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(12.dp).verticalScroll(rememberScrollState())
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Button(
+                    onClick = {
+                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, title)
+                            putExtra(Intent.EXTRA_TEXT, content)
+                        }
+                        context.startActivity(Intent.createChooser(sendIntent, "Share $title"))
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = pal.cyan, contentColor = Color(0xFF070B14))
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Share / Export File", fontWeight = FontWeight.Bold)
                 }
             }
         }

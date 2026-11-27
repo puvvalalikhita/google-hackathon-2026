@@ -179,6 +179,34 @@ async def run_async_checks() -> None:
                 os.environ["WHATSAPP_APP_SECRET"] = prev_secret
         print("[OK] GET/POST /webhook/whatsapp verification + HMAC-SHA256 signature enforcement")
 
+        # 10b. Owner Auth PIN, Hash-Chained Audit Vault & TallyPrime XML/CSV Export
+        prev_enforce = os.environ.get("ENFORCE_MANAGER_AUTH")
+        os.environ["ENFORCE_MANAGER_AUTH"] = "true"
+        try:
+            unauth = await client.get("/api/audit-logs")
+            assert unauth.status_code == 401
+            bad_pin = await client.post("/api/auth/login", json={"pin": "0000"})
+            assert bad_pin.status_code == 401
+            ok_pin = await client.post("/api/auth/login", json={"pin": os.getenv("OWNER_PIN", "4242")})
+            assert ok_pin.status_code == 200
+            owner_tok = ok_pin.json()["token"]
+            hdr = {"Authorization": f"Bearer {owner_tok}"}
+
+            audit_res = await client.get("/api/audit-logs", headers=hdr)
+            assert audit_res.status_code == 200 and audit_res.json()["chain_verified"] is True
+
+            tally_xml = await client.get("/api/ledger/export/tally.xml", headers=hdr)
+            assert tally_xml.status_code == 200 and "<TALLYREQUEST>Import Data</TALLYREQUEST>" in tally_xml.text
+
+            csv_res = await client.get("/api/ledger/export/ledger.csv", headers=hdr)
+            assert csv_res.status_code == 200 and "Entry ID,Timestamp,Driver" in csv_res.text
+            print("[OK] Owner PIN Auth + SHA-256 Audit Chain + TallyPrime XML & CSV Export")
+        finally:
+            if prev_enforce is None:
+                os.environ.pop("ENFORCE_MANAGER_AUTH", None)
+            else:
+                os.environ["ENFORCE_MANAGER_AUTH"] = prev_enforce
+
         # 11. Reset DB clean
         await client.post("/api/reset")
 

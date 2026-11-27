@@ -13,7 +13,49 @@ data class HealthResponse(
     @SerialName("voice_note_model") val voiceNoteModel: String = "gemini-3.8-flash",
     @SerialName("whatsapp_configured") val whatsappConfigured: Boolean = false,
     val environment: String = "development",
-    @SerialName("database_ok") val databaseOk: Boolean = true
+    @SerialName("database_ok") val databaseOk: Boolean = true,
+    @SerialName("storage_mode") val storageMode: String = "sqlite",
+    @SerialName("gcs_bucket") val gcsBucket: String? = null,
+    @SerialName("manager_auth_enforced") val managerAuthEnforced: Boolean = false,
+    @SerialName("audit_chain_verified") val auditChainVerified: Boolean = true
+)
+
+@Serializable
+data class AuditLogEntry(
+    @SerialName("audit_id") val auditId: String = "",
+    val seq: Int = 0,
+    val timestamp: String = "",
+    val actor: String = "",
+    val role: String = "",
+    val action: String = "",
+    @SerialName("target_id") val targetId: String = "",
+    val summary: String = "",
+    @SerialName("integrity_hash") val integrityHash: String = ""
+)
+
+@Serializable
+data class AuditSummary(
+    @SerialName("total_count") val totalCount: Int = 0,
+    @SerialName("chain_verified") val chainVerified: Boolean = true,
+    @SerialName("storage_backend") val storageBackend: String = "sqlite",
+    val latest: List<AuditLogEntry> = emptyList()
+)
+
+@Serializable
+data class OwnerLoginResponse(
+    val token: String = "",
+    val role: String = "OWNER",
+    val actor: String = "Priya Sharma (Area Manager)",
+    @SerialName("expires_in") val expiresIn: Int = 86400
+)
+
+@Serializable
+data class AuthSessionResponse(
+    val authenticated: Boolean = false,
+    @SerialName("token_valid") val tokenValid: Boolean = false,
+    @SerialName("auth_enforced") val authEnforced: Boolean = false,
+    val role: String = "GUEST",
+    val actor: String = "Guest"
 )
 
 @Serializable
@@ -31,7 +73,8 @@ data class ErpState(
     val receipts: List<ReceiptItem> = emptyList(),
     val insights: List<InsightItem> = emptyList(),
     @SerialName("whatsapp_messages") val whatsappMessages: List<WhatsAppMessage> = emptyList(),
-    @SerialName("whatsapp_session") val whatsappSession: WhatsAppSession? = null
+    @SerialName("whatsapp_session") val whatsappSession: WhatsAppSession? = null,
+    @SerialName("audit_summary") val auditSummary: AuditSummary? = null
 )
 
 @Serializable

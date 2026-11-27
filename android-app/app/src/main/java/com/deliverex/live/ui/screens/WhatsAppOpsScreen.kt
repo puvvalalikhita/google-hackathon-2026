@@ -167,7 +167,7 @@ fun WhatsAppOpsScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(state.erpState.whatsappMessages, key = { it.msgId }) { msg ->
-                WhatsAppBubble(msg = msg, onOpenProofZoom = onOpenProofZoom)
+                WhatsAppBubble(msg = msg, baseUrl = state.baseUrl, onOpenProofZoom = onOpenProofZoom)
             }
         }
 
@@ -221,6 +221,7 @@ fun WhatsAppOpsScreen(
 @Composable
 private fun WhatsAppBubble(
     msg: WhatsAppMessage,
+    baseUrl: String,
     onOpenProofZoom: (String) -> Unit
 ) {
     val pal = LocalDeliverExPalette.current
@@ -287,6 +288,7 @@ private fun WhatsAppBubble(
             if (msg.msgType == "image" && !msg.mediaDataUrl.isNullOrBlank()) {
                 Base64ProofImage(
                     dataUrl = msg.mediaDataUrl,
+                    baseUrl = baseUrl,
                     modifier = Modifier.fillMaxWidth().height(130.dp),
                     onClick = { onOpenProofZoom(msg.mediaDataUrl) }
                 )
