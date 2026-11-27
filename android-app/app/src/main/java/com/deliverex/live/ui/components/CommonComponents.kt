@@ -905,66 +905,96 @@ fun LoginScreen(
             }
 
             "MANAGER" -> {
+                var pinVisible by remember { mutableStateOf(false) }
+                var failedAttempts by remember { mutableStateOf(0) }
+                var lockedUntilMs by remember { mutableStateOf(0L) }
+
                 GlassCard(borderColor = pal.primary.copy(alpha = 0.55f)) {
-                    Text("👩‍💼 Manager Login (Priya Sharma)", color = pal.primary, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("🔒", fontSize = 16.sp)
+                        Text("Priya Sharma • Secure Manager Login", color = pal.primary, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                    }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Review driver damage photos, approve discounts in 1 tap, share WhatsApp receipts, and export Tally.",
+                        "Authorized access only. Review driver damage photos, approve discounts, and download Tally / CSV reports.",
                         color = Color(0xFFCBD5E1),
                         fontSize = 12.sp
                     )
                     Spacer(Modifier.height(14.dp))
                     OutlinedTextField(
                         value = managerPin,
-                        onValueChange = {
-                            managerPin = it
-                            managerError = null
+                        onValueChange = { next ->
+                            if (next.length <= 8 && next.all { it.isDigit() }) {
+                                managerPin = next
+                                managerError = null
+                            }
                         },
-                        label = { Text("Manager PIN (demo: 4242)") },
+                        label = { Text("Enter Manager PIN") },
                         singleLine = true,
+                        visualTransformation = if (pinVisible) {
+                            androidx.compose.ui.text.input.VisualTransformation.None
+                        } else {
+                            androidx.compose.ui.text.input.PasswordVisualTransformation()
+                        },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
+                        ),
+                        trailingIcon = {
+                            IconButton(onClick = { pinVisible = !pinVisible }) {
+                                Text(if (pinVisible) "🙈" else "👁️", fontSize = 15.sp)
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth()
                     )
                     managerError?.let { err ->
                         Spacer(Modifier.height(6.dp))
-                        Text(err, color = pal.danger, fontSize = 12.sp)
+                        Text(err, color = pal.danger, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
-                    Spacer(Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = { managerPin = "4242"; managerError = null },
-                            enabled = !managerLoading,
-                            modifier = Modifier.height(54.dp),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text("Fill 4242", fontSize = 12.sp)
-                        }
-                        Button(
-                            onClick = {
-                                if (managerPin.isBlank()) {
-                                    managerError = "Please enter Manager PIN (4242)"
-                                } else {
-                                    managerLoading = true
-                                    managerError = null
-                                    onManagerLogin(managerPin) { ok, err ->
-                                        managerLoading = false
-                                        if (!ok) managerError = err ?: "Invalid PIN"
+                    Spacer(Modifier.height(14.dp))
+                    Button(
+                        onClick = {
+                            val now = System.currentTimeMillis()
+                            if (now < lockedUntilMs) {
+                                val secs = ((lockedUntilMs - now) / 1000L).coerceAtLeast(1L)
+                                managerError = "🔒 Too many wrong PINs. Try again in ${secs}s."
+                                return@Button
+                            }
+                            if (managerPin.length < 4) {
+                                managerError = "Please enter your 4+ digit Manager PIN."
+                                return@Button
+                            }
+                            managerLoading = true
+                            managerError = null
+                            onManagerLogin(managerPin) { ok, err ->
+                                managerLoading = false
+                                if (!ok) {
+                                    failedAttempts += 1
+                                    managerPin = ""
+                                    if (failedAttempts >= 5) {
+                                        lockedUntilMs = System.currentTimeMillis() + 30_000L
+                                        failedAttempts = 0
+                                        managerError = "🔒 Too many wrong attempts. Locked for 30 seconds."
+                                    } else {
+                                        managerError = "${err ?: "Invalid Manager PIN"} (${5 - failedAttempts} tries left)"
                                     }
+                                } else {
+                                    failedAttempts = 0
                                 }
-                            },
-                            enabled = !managerLoading,
-                            modifier = Modifier.weight(1f).height(54.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = pal.primary, contentColor = Color(0xFF070B14))
-                        ) {
-                            Text(
-                                if (managerLoading) "Signing In..." else "Unlock Manager Portal →",
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 14.sp
-                            )
-                        }
+                            }
+                        },
+                        enabled = !managerLoading,
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = pal.primary, contentColor = Color(0xFF070B14))
+                    ) {
+                        Text(
+                            if (managerLoading) "Verifying PIN..." else "🔐 Unlock Manager Portal →",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 15.sp
+                        )
                     }
                 }
             }
@@ -1297,6 +1327,60 @@ fun OwnerPinDialog(
     }
 }
 
+private fun saveExportToDownloads(
+    context: android.content.Context,
+    fileName: String,
+    mimeType: String,
+    content: String
+): Result<String> = runCatching {
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.Downloads.DISPLAY_NAME, fileName)
+            put(android.provider.MediaStore.Downloads.MIME_TYPE, mimeType)
+            put(android.provider.MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
+        }
+        val resolver = context.contentResolver
+        val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            ?: error("Could not create file in Downloads")
+        resolver.openOutputStream(uri)?.use { out ->
+            out.write(content.toByteArray(Charsets.UTF_8))
+        } ?: error("Could not write file")
+        fileName
+    } else {
+        @Suppress("DEPRECATION")
+        val dir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+        dir.mkdirs()
+        val file = java.io.File(dir, fileName)
+        file.writeText(content, Charsets.UTF_8)
+        file.name
+    }
+}
+
+private fun shareExportedFile(
+    context: android.content.Context,
+    fileName: String,
+    mimeType: String,
+    content: String
+) {
+    runCatching {
+        val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+        val file = java.io.File(dir, fileName)
+        file.writeText(content, Charsets.UTF_8)
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file
+        )
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = mimeType
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, fileName)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(sendIntent, "Share $fileName"))
+    }
+}
+
 @Composable
 fun ExportPreviewDialog(
     title: String,
@@ -1305,59 +1389,106 @@ fun ExportPreviewDialog(
 ) {
     val pal = LocalDeliverExPalette.current
     val context = LocalContext.current
+    val isXml = title.contains("XML", ignoreCase = true) || content.trimStart().startsWith("<")
+    val ext = if (isXml) "xml" else "csv"
+    val mime = if (isXml) "application/xml" else "text/csv"
+    val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmm", java.util.Locale.US).format(java.util.Date())
+    val fileName = "RajuBhai_Ledger_$stamp.$ext"
+    var downloadStatus by remember { mutableStateOf<String?>(null) }
 
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            shape = RoundedCornerShape(22.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 28.dp),
+            shape = RoundedCornerShape(20.dp),
             color = Color(0xFF0C1426),
-            border = BorderStroke(1.dp, pal.borderGlass)
+            border = BorderStroke(1.dp, pal.cyan.copy(alpha = 0.45f))
         ) {
-            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(title, color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(title, color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                        Text(fileName, color = pal.cyan, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    }
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                     }
                 }
-                Spacer(Modifier.height(8.dp))
+
+                // Scrollable both vertically AND horizontally so wide CSV columns stay crisp & un-zoomed
                 Surface(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(290.dp),
+                    shape = RoundedCornerShape(12.dp),
                     color = Color(0xFF060A13),
                     border = BorderStroke(1.dp, pal.borderGlass)
                 ) {
-                    Text(
-                        text = content,
-                        color = Color(0xFFBAE6FD),
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(12.dp).verticalScroll(rememberScrollState())
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .horizontalScroll(rememberScrollState())
+                            .padding(10.dp)
+                    ) {
+                        Text(
+                            text = content,
+                            color = Color(0xFFBAE6FD),
+                            fontSize = 10.sp,
+                            lineHeight = 15.sp,
+                            softWrap = false,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
                 }
-                Spacer(Modifier.height(10.dp))
-                Button(
-                    onClick = {
-                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_SUBJECT, title)
-                            putExtra(Intent.EXTRA_TEXT, content)
-                        }
-                        context.startActivity(Intent.createChooser(sendIntent, "Share $title"))
-                    },
+
+                downloadStatus?.let { status ->
+                    Text(status, color = pal.success, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = pal.cyan, contentColor = Color(0xFF070B14))
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Share / Export File", fontWeight = FontWeight.Bold)
+                    Button(
+                        onClick = {
+                            saveExportToDownloads(context, fileName, mime, content)
+                                .onSuccess { saved ->
+                                    downloadStatus = "✅ Saved to Downloads/$saved"
+                                    com.deliverex.live.update.AppNotificationManager.playInAppChime(context)
+                                }
+                                .onFailure { err ->
+                                    downloadStatus = "Save failed: ${err.message}"
+                                }
+                        },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = pal.success, contentColor = Color(0xFF070B14))
+                    ) {
+                        Text("⬇️ Download", fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                    }
+                    OutlinedButton(
+                        onClick = { shareExportedFile(context, fileName, mime, content) },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Share File", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
                 }
             }
         }

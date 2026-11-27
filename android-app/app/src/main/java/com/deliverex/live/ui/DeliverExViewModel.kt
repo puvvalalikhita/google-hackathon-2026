@@ -202,6 +202,7 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun refreshFromServer() {
+        checkForAppUpdate(silent = true)
         viewModelScope.launch {
             _uiState.update { it.copy(isRefreshing = true) }
             if (prefs.offlineDemoMode) {
@@ -963,7 +964,7 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
             if (_uiState.value.backendConnected && !prefs.offlineDemoMode) {
                 runCatching { apiClient.exportLedgerCsv() }
                     .onSuccess { csv ->
-                        _uiState.update { it.copy(exportedTitle = "DeliverEx Ledger CSV", exportedContent = csv) }
+                        _uiState.update { it.copy(exportedTitle = "Raju Bhai Ledger CSV", exportedContent = csv) }
                         refreshFromServer()
                     }
                     .onFailure { err ->
@@ -971,7 +972,7 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
                         else _uiState.update { it.copy(toastMessage = "CSV export error: ${err.message}") }
                     }
             } else {
-                _uiState.update { it.copy(exportedTitle = "DeliverEx Ledger CSV", exportedContent = offlineEngine.exportLedgerCsv()) }
+                _uiState.update { it.copy(exportedTitle = "Raju Bhai Ledger CSV", exportedContent = offlineEngine.exportLedgerCsv()) }
             }
         }
     }

@@ -156,15 +156,15 @@ async def api_app_version():
     """Returns the latest Android APK metadata so installed Raju Bhai apps can notify & self-update."""
     return {
         "app_name": "Raju Bhai",
-        "latest_version_code": int(os.getenv("ANDROID_LATEST_VERSION_CODE", "4")),
-        "latest_version_name": os.getenv("ANDROID_LATEST_VERSION_NAME", "1.3.0").strip(),
+        "latest_version_code": int(os.getenv("ANDROID_LATEST_VERSION_CODE", "5")),
+        "latest_version_name": os.getenv("ANDROID_LATEST_VERSION_NAME", "1.4.0").strip(),
         "apk_url": os.getenv(
             "ANDROID_APK_URL",
-            "https://storage.googleapis.com/deliverex-downloads-353183969363/Raju-Bhai-v1.3.0.apk",
+            "https://storage.googleapis.com/deliverex-downloads-353183969363/Raju-Bhai-v1.4.0.apk",
         ).strip(),
         "release_notes": os.getenv(
             "ANDROID_RELEASE_NOTES",
-            "Separate logins for Worker (Raju Bhai), Manager (Priya) & Demo, louder Live AI speaker voice, native camera photo upload UI, and WhatsApp auto-scroll.",
+            "Fixed CSV/XML download UI with direct Save to Downloads, masked PIN & lockout protection for Priya login, and instant update check on app resume.",
         ).strip(),
         "force_update": os.getenv("ANDROID_FORCE_UPDATE", "false").strip().lower() in {"true", "1", "yes"},
     }
