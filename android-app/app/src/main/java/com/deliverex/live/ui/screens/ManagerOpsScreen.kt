@@ -23,9 +23,14 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,6 +41,7 @@ import com.deliverex.live.ui.LedgerFilter
 import com.deliverex.live.ui.components.Base64ProofImage
 import com.deliverex.live.ui.components.GlassCard
 import com.deliverex.live.ui.components.StatusPill
+import com.deliverex.live.ui.components.shareTextToWhatsApp
 import com.deliverex.live.ui.theme.LocalDeliverExPalette
 import com.deliverex.live.ui.theme.formatInr
 
@@ -52,6 +58,8 @@ fun ManagerOpsScreen(
     onExportLedgerCsv: () -> Unit
 ) {
     val pal = LocalDeliverExPalette.current
+    val context = LocalContext.current
+    var showPolicies by remember { mutableStateOf(false) }
     val erp = state.erpState
     val totalCash = erp.ledger.sumOf { it.cashReceived }
     val totalOk = erp.ledger.sumOf { it.deliveredQty }
@@ -84,13 +92,13 @@ fun ManagerOpsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                KpiMiniCard("CASH SYNCED", formatInr(totalCash), "${erp.ledger.size} entries", pal.success, Modifier.weight(1f))
-                KpiMiniCard("BAGS", "$totalOk ok • $totalDmg dmg", "${erp.inventory.sumOf { it.warehouseStock }} wh", pal.cyan, Modifier.weight(1f))
-                KpiMiniCard("HITL / SETTLED", "$pendingCount Pend", "$settledCount/${erp.customers.size} paid", if (pendingCount > 0) pal.warning else pal.primary, Modifier.weight(1f))
+                KpiMiniCard("Cash Collected", formatInr(totalCash), "${erp.ledger.size} entries", pal.success, Modifier.weight(1f))
+                KpiMiniCard("Delivered", "$totalOk OK • $totalDmg Dmg", "${erp.inventory.sumOf { it.warehouseStock }} in stock", pal.cyan, Modifier.weight(1f))
+                KpiMiniCard("Needs Approval", "$pendingCount Pending", "$settledCount/${erp.customers.size} paid", if (pendingCount > 0) pal.warning else pal.primary, Modifier.weight(1f))
             }
         }
 
-        // 2. Latest Official Receipt
+        // 2. Latest Official Receipt with 1-Tap WhatsApp Share
         state.latestReceipt?.let { rcpt ->
             item {
                 GlassCard(borderColor = pal.success.copy(alpha = 0.55f), backgroundColor = Color(0xCC06281F)) {
@@ -99,11 +107,20 @@ fun ManagerOpsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("OFFICIAL WHATSAPP RECEIPT", color = pal.success, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Monospace)
+                        Text("OFFICIAL WHATSAPP RECEIPT", color = pal.success, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                         StatusPill(rcpt.receiptId, pal.success)
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(rcpt.messageText, color = Color(0xFFECFDF5), fontSize = 12.sp, lineHeight = 17.sp)
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = { shareTextToWhatsApp(context, rcpt.messageText) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = pal.success, contentColor = Color(0xFF070B14)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("📲 Share Receipt on WhatsApp", fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                    }
                 }
             }
         }
@@ -116,11 +133,10 @@ fun ManagerOpsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "PRIYA'S 1-TAP APPROVALS",
+                    "APPROVALS FOR PRIYA",
                     color = pal.primary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontFamily = FontFamily.Monospace
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.ExtraBold
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Surface(
@@ -164,36 +180,52 @@ fun ManagerOpsScreen(
             }
         }
 
-        // 4. Grounded Company SOP Policies
+        // 4. Company Rules (SOPs - collapsible outside Demo Mode)
         item {
+            val expanded = state.showDemoControls || showPolicies
             GlassCard {
-                Text(
-                    "COMPANY SOP KNOWLEDGE BASE",
-                    color = pal.cyan,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontFamily = FontFamily.Monospace
-                )
-                Spacer(Modifier.height(8.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    state.policies.forEach { p ->
-                        val active = state.highlightedPolicyIds.contains(p.id)
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (active) pal.cyan.copy(alpha = 0.14f) else Color(0x660B1220),
-                            border = BorderStroke(1.dp, if (active) pal.cyan.copy(alpha = 0.65f) else pal.borderGlass)
-                        ) {
-                            Column(modifier = Modifier.padding(10.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text("${p.id}: ${p.title}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    if (active) StatusPill("GROUNDED", pal.cyan)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showPolicies = !showPolicies },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "📋 Company Rules (${state.policies.size} SOPs)",
+                        color = pal.cyan,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        if (expanded) "Hide ▲" else "Show ▼",
+                        color = pal.cyan,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                if (expanded) {
+                    Spacer(Modifier.height(8.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        state.policies.forEach { p ->
+                            val active = state.highlightedPolicyIds.contains(p.id)
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (active) pal.cyan.copy(alpha = 0.14f) else Color(0x660B1220),
+                                border = BorderStroke(1.dp, if (active) pal.cyan.copy(alpha = 0.65f) else pal.borderGlass)
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("${p.title} (${p.id})", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        if (active) StatusPill("APPLIED", pal.cyan)
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(p.rule, color = Color(0xFFCBD5E1), fontSize = 11.sp, lineHeight = 15.sp)
                                 }
-                                Spacer(Modifier.height(4.dp))
-                                Text(p.rule, color = Color(0xFFCBD5E1), fontSize = 11.sp, lineHeight = 15.sp)
                             }
                         }
                     }
@@ -201,7 +233,7 @@ fun ManagerOpsScreen(
             }
         }
 
-        // 5. Tally / SAP Ledger Table
+        // 5. Tally / Account Ledger
         item {
             GlassCard {
                 Row(
@@ -210,11 +242,10 @@ fun ManagerOpsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "TALLY / SAP LIVE LEDGER",
+                        "TALLY / ACCOUNT BOOK",
                         color = pal.primary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontFamily = FontFamily.Monospace
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Surface(
@@ -223,7 +254,7 @@ fun ManagerOpsScreen(
                             color = pal.cyan.copy(alpha = 0.18f),
                             border = BorderStroke(1.dp, pal.cyan.copy(alpha = 0.45f))
                         ) {
-                            Text("📥 Tally XML", color = pal.cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+                            Text("📥 Export to Tally", color = pal.cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                         }
                         Surface(
                             onClick = onExportLedgerCsv,
@@ -231,7 +262,7 @@ fun ManagerOpsScreen(
                             color = Color.White.copy(alpha = 0.1f),
                             border = BorderStroke(1.dp, pal.borderGlass)
                         ) {
-                            Text("📊 CSV", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+                            Text("📊 CSV", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                         }
                     }
                 }
@@ -399,8 +430,8 @@ private fun ApprovalCard(
         if (apr.discountRequested > 0 || apr.damagedQty > 0) {
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (apr.discountRequested > 0) StatusPill("Disc: -${formatInr(apr.discountRequested)}", pal.warning)
-                if (apr.damagedQty > 0) StatusPill("Quarantine: ${apr.damagedQty} bags", pal.danger)
+                if (apr.discountRequested > 0) StatusPill("Discount Requested: -${formatInr(apr.discountRequested)}", pal.warning)
+                if (apr.damagedQty > 0) StatusPill("Damaged Bags: ${apr.damagedQty}", pal.danger)
             }
         }
 
@@ -412,7 +443,7 @@ private fun ApprovalCard(
                 modifier = Modifier.fillMaxWidth().height(120.dp),
                 onClick = { onZoomProof(apr.proofImage) }
             )
-            Text("Tap photo to zoom • Gemini Vision Verified", color = pal.cyan, fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp))
+            Text("Tap photo to zoom • Checked by AI", color = pal.cyan, fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp))
         }
 
         if (isPending) {
@@ -433,13 +464,13 @@ private fun ApprovalCard(
                     onClick = { onDecide("REJECTED") },
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("❌ Reject", color = pal.danger, fontSize = 12.sp)
+                    Text("❌ Decline", color = pal.danger, fontSize = 12.sp)
                 }
                 OutlinedButton(
                     onClick = { onDecide("TAKE_OVER") },
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("📞 Take Over", color = pal.cyan, fontSize = 12.sp)
+                    Text("📞 Call Driver", color = pal.cyan, fontSize = 12.sp)
                 }
             }
         } else {

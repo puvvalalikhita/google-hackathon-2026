@@ -2,6 +2,7 @@ package com.deliverex.live.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +28,10 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -36,6 +41,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -65,9 +71,12 @@ import com.deliverex.live.ui.theme.LocalDeliverExPalette
 fun LiveCallScreen(
     state: DeliverExUiState,
     onToggleCall: () -> Unit,
+    onToggleMute: () -> Unit,
     onEndTurn: () -> Unit,
     onToggleNoise: () -> Unit,
     onSelectStore: (String) -> Unit,
+    onSelectLanguage: (String) -> Unit,
+    onToggleDemoControls: () -> Unit,
     onRunGuidedStep: (Int) -> Unit,
     onSendTextTurn: (String) -> Unit,
     onOpenCameraProof: () -> Unit,
@@ -77,6 +86,7 @@ fun LiveCallScreen(
     var textInput by remember { mutableStateOf("") }
     var storeDropdownExpanded by remember { mutableStateOf(false) }
 
+    val languages = listOf("Hinglish", "हिंदी", "Tanglish", "తెలుగు", "English")
     val stores = remember(state.erpState.customers) {
         state.erpState.customers.map { it.name }.ifEmpty {
             listOf("Krishna Hardware", "Shri Ganesh Stores", "Bharat Traders", "Murugan Builders")
@@ -86,12 +96,46 @@ fun LiveCallScreen(
     val mm = (state.callSeconds / 60).toString().padStart(2, '0')
     val ss = (state.callSeconds % 60).toString().padStart(2, '0')
 
+    val friendlyStatus = when {
+        !state.callActive -> "Tap Start Call & speak in ${state.preferredLanguage}"
+        state.micMuted -> "🔇 Mic muted — tap Unmute to speak"
+        state.voiceStage.contains("SPEAK", ignoreCase = true) -> "🔊 AI Speaking — speak anytime to interrupt"
+        state.voiceStage.contains("BARGE", ignoreCase = true) -> "⚡ Caught your interruption — listening"
+        else -> "🎙️ Listening — speak naturally in ${state.preferredLanguage}"
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // 1. Live Voice Call Hero Card
+        // 1. Language Selector Chips
+        item {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                languages.forEach { lang ->
+                    val selected = state.preferredLanguage == lang
+                    Surface(
+                        onClick = { onSelectLanguage(lang) },
+                        shape = RoundedCornerShape(50),
+                        color = if (selected) pal.cyan.copy(alpha = 0.22f) else Color(0x66111B2E),
+                        border = BorderStroke(1.dp, if (selected) pal.cyan else pal.borderGlass)
+                    ) {
+                        Text(
+                            text = lang,
+                            color = if (selected) Color.White else Color(0xFFCBD5E1),
+                            fontSize = 11.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // 2. Hero Voice Call Card (Clean, thumb-friendly 54dp buttons)
         item {
             GlassCard(
                 borderColor = if (state.callActive) pal.cyan.copy(alpha = 0.55f) else pal.borderGlass
@@ -103,23 +147,25 @@ fun LiveCallScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (state.callActive) state.voiceStage else "GEMINI LIVE VOICE AGENT",
-                            color = if (state.callActive) pal.cyan else pal.primary,
+                            text = if (state.callActive) "VOICE CALL LIVE • $mm:$ss" else "DELIVERY VOICE ASSISTANT",
+                            color = if (state.callActive) pal.success else pal.primary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.ExtraBold,
                             fontFamily = FontFamily.Monospace
                         )
                         Text(
-                            text = "${state.driverName} • $mm:$ss",
+                            text = "${state.driverName} • ${state.activeStore}",
                             color = Color.White,
-                            fontSize = 17.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    StatusPill(
-                        text = "${state.noiseFloorDb} dB",
-                        color = if (state.noiseFloorDb >= 70) pal.warning else pal.cyan
-                    )
+                    if (state.showDemoControls) {
+                        StatusPill(
+                            text = "${state.noiseFloorDb} dB",
+                            color = if (state.noiseFloorDb >= 70) pal.warning else pal.cyan
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(10.dp))
@@ -129,42 +175,41 @@ fun LiveCallScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     VoiceOrbVisualizer(
-                        energy = state.voiceEnergy,
+                        energy = if (state.micMuted) 0.02f else state.voiceEnergy,
                         callActive = state.callActive,
                         stage = state.voiceStage,
-                        modifier = Modifier.size(110.dp)
+                        modifier = Modifier.size(96.dp)
                     )
                     Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            text = state.voiceStageDetail,
-                            color = Color(0xFFE2E8F0),
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp
+                            text = friendlyStatus,
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            lineHeight = 18.sp
                         )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            StatusPill(
-                                text = "TTFA ${state.latencyHistory.lastOrNull() ?: 290}ms",
-                                color = pal.success
+                        if (state.showDemoControls) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                StatusPill("TTFA ${state.latencyHistory.lastOrNull() ?: 290}ms", pal.success)
+                                StatusPill("⚡ ${state.interruptionCount} Barge-In", pal.warning)
+                            }
+                            LatencySparkline(
+                                values = state.latencyHistory,
+                                modifier = Modifier.fillMaxWidth().height(22.dp)
                             )
-                            StatusPill(
-                                text = "⚡ ${state.interruptionCount} Barge-In",
-                                color = pal.warning
+                        } else {
+                            Text(
+                                text = "Tell me shop name, bags delivered, damaged bags, or cash collected.",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp
                             )
                         }
-                        LatencySparkline(
-                            values = state.latencyHistory,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(26.dp)
-                        )
                     }
                 }
 
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -172,55 +217,69 @@ fun LiveCallScreen(
                 ) {
                     Button(
                         onClick = onToggleCall,
-                        modifier = Modifier.weight(1f).height(46.dp),
+                        modifier = Modifier.weight(1f).height(54.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (state.callActive) pal.danger else pal.success,
                             contentColor = Color(0xFF070B14)
                         ),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Icon(
                             if (state.callActive) Icons.Default.CallEnd else Icons.Default.Call,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp)
                         )
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text(
-                            if (state.callActive) "End Call" else "Start Live Call",
-                            fontWeight = FontWeight.ExtraBold
+                            if (state.callActive) "End Call" else "Start Voice Call",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 15.sp
                         )
                     }
 
-                    if (state.callActive && state.liveGeminiReady) {
+                    if (state.callActive) {
                         OutlinedButton(
-                            onClick = onEndTurn,
-                            modifier = Modifier.height(46.dp),
-                            shape = RoundedCornerShape(14.dp)
+                            onClick = onToggleMute,
+                            modifier = Modifier.height(54.dp),
+                            shape = RoundedCornerShape(16.dp)
                         ) {
-                            Icon(Icons.Default.RecordVoiceOver, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("End Turn", fontSize = 12.sp)
+                            Icon(
+                                if (state.micMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                                contentDescription = "Mute toggle",
+                                tint = if (state.micMuted) pal.danger else Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
 
-                    OutlinedButton(
-                        onClick = onToggleNoise,
-                        modifier = Modifier.height(46.dp),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Icon(Icons.Default.GraphicEq, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(if (state.noiseFloorDb >= 70) "78dB" else "Noise", fontSize = 12.sp)
+                    if (state.callActive && state.liveGeminiReady && state.showDemoControls) {
+                        OutlinedButton(
+                            onClick = onEndTurn,
+                            modifier = Modifier.height(54.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(Icons.Default.RecordVoiceOver, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
+                    }
+
+                    if (state.showDemoControls) {
+                        OutlinedButton(
+                            onClick = onToggleNoise,
+                            modifier = Modifier.height(54.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(Icons.Default.GraphicEq, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
                     }
                 }
             }
         }
 
-        // 2. Active Store Selector + Camera POD Controls
+        // 3. Shop Selection & Damaged Bag Photo
         item {
             GlassCard {
                 Text(
-                    "TARGET STORE & VISION PROOF (SOP-5.1)",
+                    "SHOP & DAMAGED BAG PHOTO",
                     color = pal.secondary,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -235,10 +294,10 @@ fun LiveCallScreen(
                         value = state.activeStore,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Active Delivery Store") },
+                        label = { Text("Select Delivery Shop") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = storeDropdownExpanded) },
                         modifier = Modifier
-                            .menuAnchor()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
                             .fillMaxWidth(),
                         singleLine = true
                     )
@@ -258,59 +317,38 @@ fun LiveCallScreen(
                     }
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
                         onClick = onOpenCameraProof,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = pal.cyan, contentColor = Color(0xFF070B14)),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(14.dp)
                     ) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Camera POD", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("Photo of Damaged Bags", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
 
-                    OutlinedButton(
-                        onClick = onSendSampleDamageProof,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("2 Torn Bags Demo", fontSize = 12.sp)
+                    if (state.showDemoControls) {
+                        OutlinedButton(
+                            onClick = onSendSampleDamageProof,
+                            modifier = Modifier.height(48.dp),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Sample", fontSize = 12.sp)
+                        }
                     }
                 }
             }
         }
 
-        // 3. Guided Demo Triggers (Steps 1–4)
-        item {
-            GlassCard {
-                Text(
-                    "LIVE FIELD TRIGGERS (HINGLISH / TANGLISH)",
-                    color = pal.primary,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
-                )
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    GuidedStepChip("1. Deliver 20 Bags", pal.success) { onRunGuidedStep(1) }
-                    GuidedStepChip("2. ⚡ Interrupt (2 Torn + ₹500)", pal.warning) { onRunGuidedStep(2) }
-                    GuidedStepChip("3. Escalate Priya", pal.danger) { onRunGuidedStep(3) }
-                    GuidedStepChip("4. Chennai Tanglish", pal.cyan) { onRunGuidedStep(4) }
-                }
-            }
-        }
-
-        // 4. Frontline Staff Coach HUD
+        // 4. Helpful Tip Card (Plain Language)
         item {
             GlassCard(borderColor = pal.cyan.copy(alpha = 0.35f)) {
                 Row(
@@ -319,48 +357,39 @@ fun LiveCallScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "FRONTLINE STAFF COACH HUD",
+                        "💡 HELPFUL TIP FOR YOU",
                         color = pal.cyan,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.ExtraBold,
                         fontFamily = FontFamily.Monospace
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        StatusPill(state.guidance.language, pal.secondary)
-                        StatusPill(
-                            state.guidance.sentiment,
-                            when (state.guidance.sentiment.uppercase()) {
-                                "FRUSTRATED" -> pal.danger
-                                "CONCERNED" -> pal.warning
-                                "RESOLVED" -> pal.success
-                                else -> pal.cyan
-                            }
-                        )
-                    }
+                    StatusPill(state.guidance.language, pal.secondary)
                 }
                 Spacer(Modifier.height(6.dp))
-                Text(state.guidance.coachTip, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                Spacer(Modifier.height(6.dp))
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = pal.cyan.copy(alpha = 0.1f),
-                    border = BorderStroke(1.dp, pal.cyan.copy(alpha = 0.25f))
-                ) {
-                    Text(
-                        text = "💬 Say: \"${state.guidance.suggestedPhrase}\"",
-                        color = Color(0xFFE0F2FE),
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(10.dp)
-                    )
+                Text(state.guidance.coachTip, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                if (state.guidance.suggestedPhrase.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = pal.cyan.copy(alpha = 0.1f),
+                        border = BorderStroke(1.dp, pal.cyan.copy(alpha = 0.25f))
+                    ) {
+                        Text(
+                            text = "💬 Tell shopkeeper: \"${state.guidance.suggestedPhrase}\"",
+                            color = Color(0xFFE0F2FE),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
                 }
             }
         }
 
-        // 5. Transcript & Input Bar
+        // 5. Conversation & Type Message Box
         item {
             GlassCard {
                 Text(
-                    "LIVE CALL TRANSCRIPT",
+                    "CONVERSATION",
                     color = pal.secondary,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -370,13 +399,13 @@ fun LiveCallScreen(
 
                 if (state.transcripts.isEmpty()) {
                     Text(
-                        "Tap Start Live Call or choose a Field Trigger above to see real-time Hinglish/Tanglish conversation & SOP grounding.",
+                        "Your voice conversation or typed delivery updates will appear here.",
                         color = Color(0xFF94A3B8),
                         fontSize = 12.sp
                     )
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        state.transcripts.takeLast(12).forEach { msg ->
+                        state.transcripts.takeLast(10).forEach { msg ->
                             TranscriptBubble(msg)
                         }
                     }
@@ -391,7 +420,7 @@ fun LiveCallScreen(
                     OutlinedTextField(
                         value = textInput,
                         onValueChange = { textInput = it },
-                        placeholder = { Text("Speak or type Hinglish / Tanglish...", fontSize = 13.sp) },
+                        placeholder = { Text("Type update in ${state.preferredLanguage}...", fontSize = 13.sp) },
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )
@@ -404,17 +433,54 @@ fun LiveCallScreen(
                             }
                         },
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(50.dp)
                             .background(pal.primary, RoundedCornerShape(14.dp))
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send turn", tint = Color(0xFF070B14))
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send update", tint = Color(0xFF070B14))
                     }
                 }
             }
         }
 
-        // 6. Tool Execution Feed
-        if (state.toolLogs.isNotEmpty()) {
+        // 6. Expandable Demo / Judge Shortcuts (Hidden cleanly in normal Driver mode)
+        item {
+            GlassCard(backgroundColor = Color(0x880B1220)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onToggleDemoControls() },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "🧪 Demo & Test Shortcuts",
+                        color = pal.primary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Icon(
+                        if (state.showDemoControls) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = Color.White
+                    )
+                }
+
+                if (state.showDemoControls) {
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        GuidedStepChip("1. Deliver 20 Bags", pal.success) { onRunGuidedStep(1) }
+                        GuidedStepChip("2. ⚡ Interrupt (2 Torn + ₹500)", pal.warning) { onRunGuidedStep(2) }
+                        GuidedStepChip("3. Escalate Priya", pal.danger) { onRunGuidedStep(3) }
+                        GuidedStepChip("4. Chennai Tanglish", pal.cyan) { onRunGuidedStep(4) }
+                    }
+                }
+            }
+        }
+
+        if (state.showDemoControls && state.toolLogs.isNotEmpty()) {
             item {
                 Text(
                     "RECENT AGENT TOOL CALLS",
@@ -424,7 +490,7 @@ fun LiveCallScreen(
                     fontFamily = FontFamily.Monospace
                 )
             }
-            items(state.toolLogs.take(6), key = { it.id }) { log ->
+            items(state.toolLogs.take(5), key = { it.id }) { log ->
                 GlassCard(backgroundColor = Color(0xAA0B1324)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -474,7 +540,7 @@ private fun TranscriptBubble(msg: TranscriptMessage) {
     when (msg.role) {
         "barge_in" -> {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                StatusPill(msg.text, pal.warning)
+                StatusPill("⚡ You interrupted — AI updated", pal.warning)
             }
         }
         "system" -> {
@@ -499,7 +565,7 @@ private fun TranscriptBubble(msg: TranscriptMessage) {
                 modifier = Modifier.fillMaxWidth().padding(start = 24.dp)
             ) {
                 Column(modifier = Modifier.padding(10.dp)) {
-                    Text("🚚 RAJU (DRIVER)", color = pal.cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("🚚 YOU", color = pal.cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(2.dp))
                     Text(msg.text, color = Color.White, fontSize = 13.sp, lineHeight = 18.sp)
                 }
@@ -513,7 +579,7 @@ private fun TranscriptBubble(msg: TranscriptMessage) {
                 modifier = Modifier.fillMaxWidth().padding(end = 24.dp)
             ) {
                 Column(modifier = Modifier.padding(10.dp)) {
-                    Text("🤖 DELIVEREX LIVE AI", color = pal.success, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("🤖 DELIVEREX ASSISTANT", color = pal.success, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(2.dp))
                     Text(msg.text, color = Color(0xFFECFDF5), fontSize = 13.sp, lineHeight = 18.sp)
                 }

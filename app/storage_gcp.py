@@ -157,6 +157,12 @@ class FirestoreStore:
         if count > 0:
             batch.commit()
 
+    def _read_audit_head_in_tx(self, tx: Any) -> Tuple[Any, Dict[str, Any]]:
+        meta_ref = self.db.collection("system_meta").document("audit_head")
+        meta_snap = meta_ref.get(transaction=tx)
+        meta_data = meta_snap.to_dict() if meta_snap.exists else {}
+        return meta_ref, meta_data
+
     def _append_audit_in_tx(
         self,
         tx: Any,
@@ -168,10 +174,12 @@ class FirestoreStore:
         summary: str,
         before_obj: Any = None,
         after_obj: Any = None,
+        pre_read_meta: Optional[Tuple[Any, Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
-        meta_ref = self.db.collection("system_meta").document("audit_head")
-        meta_snap = meta_ref.get(transaction=tx)
-        meta_data = meta_snap.to_dict() if meta_snap.exists else {}
+        if pre_read_meta is not None:
+            meta_ref, meta_data = pre_read_meta
+        else:
+            meta_ref, meta_data = self._read_audit_head_in_tx(tx)
         prev_hash = meta_data.get("last_hash") or "GENESIS"
         seq = int(meta_data.get("seq") or 0) + 1
         now = _now_iso()
@@ -429,15 +437,17 @@ class FirestoreStore:
 
         @firestore.transactional
         def _run(tx: Any) -> Optional[str]:
+            # All Firestore transaction reads MUST precede any writes.
             cust_ref = self.db.collection("customers").document(customer_id)
             cust = cust_ref.get(transaction=tx).to_dict()
             inv_ref = self.db.collection("inventory").document(cust["sku_code"])
             inv = inv_ref.get(transaction=tx).to_dict()
+            apr_ref = self.db.collection("approvals").document(existing_id) if existing_id else None
+            apr = apr_ref.get(transaction=tx).to_dict() if apr_ref is not None else None
+            audit_meta = self._read_audit_head_in_tx(tx)
             now = _now_iso()
 
-            if existing_id:
-                apr_ref = self.db.collection("approvals").document(existing_id)
-                apr = apr_ref.get(transaction=tx).to_dict()
+            if existing_id and apr_ref is not None and apr is not None:
                 prev_dmg = _safe_int(apr.get("damaged_qty"), 0)
                 new_dmg = max(prev_dmg, _safe_int(damaged_bags, 0))
                 dmg_delta = max(0, new_dmg - prev_dmg)
@@ -459,6 +469,7 @@ class FirestoreStore:
                     target_id=existing_id,
                     summary=f"Attached visual damage proof to {existing_id} ({cust['name']})",
                     after_obj={"damaged_qty": new_dmg, "gcs_uri": gcs_uri},
+                    pre_read_meta=audit_meta,
                 )
                 return existing_id
 
@@ -518,6 +529,7 @@ class FirestoreStore:
                 target_id=attached_to,
                 summary=f"Created SOP-5.1 approval {attached_to} with visual proof for {cust['name']}",
                 after_obj={"damaged_qty": dmg, "gcs_uri": gcs_uri},
+                pre_read_meta=audit_meta,
             )
             return attached_to
 
@@ -550,12 +562,13 @@ class FirestoreStore:
             cust = self.db.collection("customers").document(customer_id).get(transaction=tx).to_dict()
             inv_ref = self.db.collection("inventory").document(cust["sku_code"])
             inv = inv_ref.get(transaction=tx).to_dict()
+            apr_ref = self.db.collection("approvals").document(existing_id) if existing_id else None
+            apr = apr_ref.get(transaction=tx).to_dict() if apr_ref is not None else None
+            audit_meta = self._read_audit_head_in_tx(tx)
             now = _now_iso()
             dmg = max(1, _safe_int(damaged_bags, 1))
 
-            if existing_id:
-                apr_ref = self.db.collection("approvals").document(existing_id)
-                apr = apr_ref.get(transaction=tx).to_dict()
+            if existing_id and apr_ref is not None and apr is not None:
                 prev_dmg = _safe_int(apr.get("damaged_qty"), 0)
                 new_dmg = max(prev_dmg, dmg)
                 dmg_delta = max(0, new_dmg - prev_dmg)
@@ -630,6 +643,7 @@ class FirestoreStore:
                 target_id=approval_id,
                 summary=f"Logged {dmg} damaged bags at {cust['name']} (SOP-5.1)",
                 after_obj={"damaged_bags": dmg, "approval_id": approval_id},
+                pre_read_meta=audit_meta,
             )
             return approval_id
 
@@ -690,6 +704,7 @@ class FirestoreStore:
                 if unlinked_id
                 else None
             )
+            audit_meta = self._read_audit_head_in_tx(tx)
             already_quarantined = _safe_int(unlinked_apr.get("damaged_qty"), 0) if unlinked_apr else 0
             net_new_damaged = max(0, damaged - already_quarantined)
 
@@ -871,6 +886,7 @@ class FirestoreStore:
                 summary=f"{cust['name']}: {delivered} ok, {damaged} dmg, Rs {cash} cash ({tally_status})",
                 before_obj={"balance_due": prev_balance, "warehouse_stock": int(inv["warehouse_stock"])},
                 after_obj={"balance_due": new_balance, "tally_entry_id": entry_id, "status": tally_status},
+                pre_read_meta=audit_meta,
             )
             tx.set(
                 idem_ref,
@@ -896,6 +912,7 @@ class FirestoreStore:
 
         @firestore.transactional
         def _run(tx: Any) -> str:
+            audit_meta = self._read_audit_head_in_tx(tx)
             approval_id = _short_id("HANDOFF")
             now = _now_iso()
             tx.set(
@@ -926,6 +943,7 @@ class FirestoreStore:
                 action="HANDOFF_REQUESTED",
                 target_id=approval_id,
                 summary=f"SOP-6.0 live handoff queued for {customer_name}: {reason}",
+                pre_read_meta=audit_meta,
             )
             return approval_id
 
@@ -942,12 +960,7 @@ class FirestoreStore:
             if apr.get("status") != "PENDING":
                 raise ValueError(f"Approval {approval_id} is already {apr.get('status')}")
 
-            now = _now_iso()
-            tx.update(apr_ref, {"status": decision, "decided_at": now})
-            apr["status"] = decision
-            apr["decided_at"] = now
-
-            receipt_payload = None
+            # All Firestore transaction reads MUST happen before any writes.
             cust_ref = self.db.collection("customers").document(apr["customer_id"])
             cust_snap = cust_ref.get(transaction=tx)
             cust = cust_snap.to_dict() if cust_snap.exists else None
@@ -955,6 +968,15 @@ class FirestoreStore:
             ledger_ref = self.db.collection("ledger_entries").document(apr["entry_id"]) if apr.get("entry_id") else None
             ledger_snap = ledger_ref.get(transaction=tx) if ledger_ref else None
             ledger = ledger_snap.to_dict() if (ledger_snap and ledger_snap.exists) else None
+
+            audit_meta = self._read_audit_head_in_tx(tx)
+
+            now = _now_iso()
+            tx.update(apr_ref, {"status": decision, "decided_at": now})
+            apr["status"] = decision
+            apr["decided_at"] = now
+
+            receipt_payload = None
 
             if decision == "APPROVED" and cust and ledger:
                 discount = int(apr.get("discount_requested") or 0)
@@ -1005,6 +1027,7 @@ class FirestoreStore:
                 summary=f"{actor} {decision} {approval_id} for {apr['customer_name']}",
                 before_obj={"status": "PENDING"},
                 after_obj={"status": decision, "receipt_id": receipt_payload["receipt_id"] if receipt_payload else None},
+                pre_read_meta=audit_meta,
             )
             return apr, receipt_payload
 

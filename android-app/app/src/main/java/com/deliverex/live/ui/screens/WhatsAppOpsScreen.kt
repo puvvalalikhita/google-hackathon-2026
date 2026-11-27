@@ -104,11 +104,10 @@ fun WhatsAppOpsScreen(
             ) {
                 Column {
                     Text(
-                        "WHATSAPP BUSINESS FIELD OPS",
+                        "WHATSAPP OPS ASSISTANT",
                         color = pal.success,
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontFamily = FontFamily.Monospace
+                        fontWeight = FontWeight.ExtraBold
                     )
                     Text(
                         "Official Ops (+91-80-DELIVEREX)",
@@ -118,7 +117,9 @@ fun WhatsAppOpsScreen(
                     )
                 }
                 StatusPill(
-                    text = state.erpState.whatsappSession?.workflowStage ?: "IDLE",
+                    text = (state.erpState.whatsappSession?.workflowStage ?: "READY").let {
+                        if (it.equals("IDLE", ignoreCase = true)) "Ready" else it
+                    },
                     color = pal.cyan
                 )
             }
@@ -134,28 +135,30 @@ fun WhatsAppOpsScreen(
             modifier = Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            AssistChip(
-                onClick = {
-                    onSendWhatsApp(
-                        "Shri Ganesh Stores pe 30 bags ACC cement deliver kar diya, 22000 cash received, koi damage nahi hai.",
-                        null
-                    )
-                },
-                label = { Text("⚡ Sample Note", fontSize = 11.sp) }
-            )
+            if (state.showDemoControls) {
+                AssistChip(
+                    onClick = {
+                        onSendWhatsApp(
+                            "Shri Ganesh Stores pe 30 bags ACC cement deliver kar diya, 22000 cash received, koi damage nahi hai.",
+                            null
+                        )
+                    },
+                    label = { Text("⚡ Sample Note", fontSize = 11.sp) }
+                )
+            }
             AssistChip(
                 onClick = { onSendWhatsApp("${state.activeStore} ka balance kitna hai?", null) },
-                label = { Text("Check Balance", fontSize = 11.sp) }
+                label = { Text("Ask Balance", fontSize = 11.sp) }
             )
             AssistChip(
                 onClick = { cameraPreviewLauncher.launch(null) },
                 leadingIcon = { Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp)) },
-                label = { Text("Camera Proof", fontSize = 11.sp) }
+                label = { Text("📷 Photo", fontSize = 11.sp) }
             )
             AssistChip(
                 onClick = { galleryLauncher.launch("image/*") },
                 leadingIcon = { Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(14.dp)) },
-                label = { Text("Gallery Photo", fontSize = 11.sp) }
+                label = { Text("🖼️ Gallery", fontSize = 11.sp) }
             )
         }
 

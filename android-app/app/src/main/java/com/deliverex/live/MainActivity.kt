@@ -16,12 +16,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Analytics
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.PhoneInTalk
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -60,8 +61,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.deliverex.live.ui.DeliverExViewModel
 import com.deliverex.live.ui.components.CameraCaptureDialog
 import com.deliverex.live.ui.components.ExportPreviewDialog
+import com.deliverex.live.ui.components.OnboardingScreen
 import com.deliverex.live.ui.components.OwnerPinDialog
 import com.deliverex.live.ui.components.ProofLightboxDialog
+import com.deliverex.live.ui.components.RoleSwitcherBar
 import com.deliverex.live.ui.components.ServerAndPrivacyDialog
 import com.deliverex.live.ui.components.StatusPill
 import com.deliverex.live.ui.screens.InsightsRoiScreen
@@ -163,119 +166,142 @@ fun DeliverExRootApp(vm: DeliverExViewModel = viewModel()) {
                     )
                 )
         ) {
-            Scaffold(
-                containerColor = Color.Transparent,
-                snackbarHost = { SnackbarHost(snackbarHostState) },
-                topBar = {
-                    TopAppBar(
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color(0xCC09101E),
-                            titleContentColor = Color.White
-                        ),
-                        title = {
-                            Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("DeliverEx Live", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-                                    Spacer(Modifier.width(8.dp))
-                                    StatusPill(
-                                        text = when {
-                                            state.backendConnected && state.health.geminiConfigured -> "LIVE GEMINI"
-                                            state.backendConnected -> "WORKFLOW"
-                                            else -> "DEMO MODE"
-                                        },
-                                        color = if (state.backendConnected && state.health.geminiConfigured) pal.success else pal.warning
-                                    )
+            if (!state.onboardingCompleted) {
+                OnboardingScreen(
+                    initialName = state.driverName,
+                    initialLanguage = state.preferredLanguage,
+                    onComplete = { role, name, lang ->
+                        vm.completeOnboarding(role, name, lang)
+                        selectedTab = if (role == "MANAGER") 2 else 0
+                    }
+                )
+            } else {
+                Scaffold(
+                    containerColor = Color.Transparent,
+                    snackbarHost = { SnackbarHost(snackbarHostState) },
+                    topBar = {
+                        TopAppBar(
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = Color(0xCC09101E),
+                                titleContentColor = Color.White
+                            ),
+                            title = {
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("DeliverEx Live", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+                                        Spacer(Modifier.width(8.dp))
+                                        StatusPill(
+                                            text = when {
+                                                state.backendConnected && state.health.geminiConfigured -> "● Live AI"
+                                                state.backendConnected -> "● Connected"
+                                                else -> "● Practice Mode"
+                                            },
+                                            color = if (state.backendConnected && state.health.geminiConfigured) pal.success else pal.warning
+                                        )
+                                    }
+                                }
+                            },
+                            actions = {
+                                IconButton(onClick = { vm.refreshFromServer() }) {
+                                    Icon(Icons.Default.Refresh, contentDescription = "Sync backend", tint = pal.cyan)
+                                }
+                                IconButton(onClick = { showSettings = true }) {
+                                    Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
                                 }
                             }
-                        },
-                        actions = {
-                            IconButton(onClick = { vm.refreshFromServer() }) {
-                                Icon(Icons.Default.Refresh, contentDescription = "Sync backend", tint = pal.cyan)
+                        )
+                    },
+                    bottomBar = {
+                        NavigationBar(containerColor = Color(0xEE09101E)) {
+                            NavigationBarItem(
+                                selected = selectedTab == 0,
+                                onClick = { selectedTab = 0 },
+                                icon = { Icon(Icons.Default.PhoneInTalk, contentDescription = null) },
+                                label = { Text("Talk", fontSize = 11.sp) }
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == 1,
+                                onClick = { selectedTab = 1 },
+                                icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null) },
+                                label = { Text("WhatsApp", fontSize = 11.sp) }
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == 2,
+                                onClick = { selectedTab = 2 },
+                                icon = {
+                                    BadgedBox(
+                                        badge = {
+                                            if (pendingApprovals > 0) {
+                                                Badge { Text(pendingApprovals.toString()) }
+                                            }
+                                        }
+                                    ) {
+                                        Icon(Icons.Default.AdminPanelSettings, contentDescription = null)
+                                    }
+                                },
+                                label = { Text("Approvals", fontSize = 11.sp) }
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == 3,
+                                onClick = { selectedTab = 3 },
+                                icon = { Icon(Icons.Default.Analytics, contentDescription = null) },
+                                label = { Text("Insights", fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                ) { innerPadding ->
+                    Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+                        RoleSwitcherBar(
+                            activeRole = state.userRole,
+                            onSelectRole = { role ->
+                                vm.switchRole(role)
+                                if (role == "MANAGER") selectedTab = 2 else if (role == "DRIVER") selectedTab = 0
                             }
-                            IconButton(onClick = { showSettings = true }) {
-                                Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
+                        )
+                        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                            when (selectedTab) {
+                                0 -> LiveCallScreen(
+                                    state = state,
+                                    onToggleCall = { withMicPermission { vm.toggleLiveCall(hasMicPermission()) } },
+                                    onToggleMute = { vm.toggleMicMute() },
+                                    onEndTurn = { vm.forceEndTurn() },
+                                    onToggleNoise = { vm.toggleMarketNoise() },
+                                    onSelectStore = { vm.setActiveStore(it) },
+                                    onSelectLanguage = { vm.setPreferredLanguage(it) },
+                                    onToggleDemoControls = { vm.toggleDemoControls() },
+                                    onRunGuidedStep = { step -> withMicPermission { vm.runGuidedStep(step, hasMicPermission()) } },
+                                    onSendTextTurn = { text -> withMicPermission { vm.sendTextTurn(text, hasMicPermission()) } },
+                                    onOpenCameraProof = { withCamPermission { showCameraDialog = true } },
+                                    onSendSampleDamageProof = { vm.submitSampleTornBagsProof() }
+                                )
+                                1 -> WhatsAppOpsScreen(
+                                    state = state,
+                                    onToggleVoiceRecord = { withMicPermission { vm.toggleWhatsAppVoiceRecording() } },
+                                    onSendWhatsApp = { text, bmp -> vm.sendWhatsAppText(text, bmp) },
+                                    onOpenProofZoom = { zoomedProofUrl = it }
+                                )
+                                2 -> ManagerOpsScreen(
+                                    state = state,
+                                    onDecideApproval = { id, decision -> vm.decideApproval(id, decision) },
+                                    onOpenProofZoom = { zoomedProofUrl = it },
+                                    onSetLedgerFilter = { vm.setLedgerFilter(it) },
+                                    onSetLedgerQuery = { vm.setLedgerQuery(it) },
+                                    onSelectStore = {
+                                        vm.setActiveStore(it)
+                                        selectedTab = 0
+                                    },
+                                    onUnlockOwner = { vm.promptOwnerLogin() },
+                                    onExportTallyXml = { vm.exportTallyXml() },
+                                    onExportLedgerCsv = { vm.exportLedgerCsv() }
+                                )
+                                3 -> InsightsRoiScreen(
+                                    state = state,
+                                    onUpdateDailyCalls = { vm.updateRoi(it) },
+                                    onResetDemo = { vm.resetDemo() },
+                                    onOpenSettings = { showSettings = true }
+                                )
                             }
                         }
-                    )
-                },
-                bottomBar = {
-                    NavigationBar(containerColor = Color(0xEE09101E)) {
-                        NavigationBarItem(
-                            selected = selectedTab == 0,
-                            onClick = { selectedTab = 0 },
-                            icon = { Icon(Icons.Default.PhoneInTalk, contentDescription = null) },
-                            label = { Text("Live Call", fontSize = 11.sp) }
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == 1,
-                            onClick = { selectedTab = 1 },
-                            icon = { Icon(Icons.Default.Chat, contentDescription = null) },
-                            label = { Text("WhatsApp", fontSize = 11.sp) }
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == 2,
-                            onClick = { selectedTab = 2 },
-                            icon = {
-                                BadgedBox(
-                                    badge = {
-                                        if (pendingApprovals > 0) {
-                                            Badge { Text(pendingApprovals.toString()) }
-                                        }
-                                    }
-                                ) {
-                                    Icon(Icons.Default.AdminPanelSettings, contentDescription = null)
-                                }
-                            },
-                            label = { Text("Manager", fontSize = 11.sp) }
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == 3,
-                            onClick = { selectedTab = 3 },
-                            icon = { Icon(Icons.Default.Analytics, contentDescription = null) },
-                            label = { Text("Insights", fontSize = 11.sp) }
-                        )
-                    }
-                }
-            ) { innerPadding ->
-                Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-                    when (selectedTab) {
-                        0 -> LiveCallScreen(
-                            state = state,
-                            onToggleCall = { withMicPermission { vm.toggleLiveCall(hasMicPermission()) } },
-                            onEndTurn = { vm.forceEndTurn() },
-                            onToggleNoise = { vm.toggleMarketNoise() },
-                            onSelectStore = { vm.setActiveStore(it) },
-                            onRunGuidedStep = { step -> withMicPermission { vm.runGuidedStep(step, hasMicPermission()) } },
-                            onSendTextTurn = { text -> withMicPermission { vm.sendTextTurn(text, hasMicPermission()) } },
-                            onOpenCameraProof = { withCamPermission { showCameraDialog = true } },
-                            onSendSampleDamageProof = { vm.submitSampleTornBagsProof() }
-                        )
-                        1 -> WhatsAppOpsScreen(
-                            state = state,
-                            onToggleVoiceRecord = { withMicPermission { vm.toggleWhatsAppVoiceRecording() } },
-                            onSendWhatsApp = { text, bmp -> vm.sendWhatsAppText(text, bmp) },
-                            onOpenProofZoom = { zoomedProofUrl = it }
-                        )
-                        2 -> ManagerOpsScreen(
-                            state = state,
-                            onDecideApproval = { id, decision -> vm.decideApproval(id, decision) },
-                            onOpenProofZoom = { zoomedProofUrl = it },
-                            onSetLedgerFilter = { vm.setLedgerFilter(it) },
-                            onSetLedgerQuery = { vm.setLedgerQuery(it) },
-                            onSelectStore = {
-                                vm.setActiveStore(it)
-                                selectedTab = 0
-                            },
-                            onUnlockOwner = { vm.promptOwnerLogin() },
-                            onExportTallyXml = { vm.exportTallyXml() },
-                            onExportLedgerCsv = { vm.exportLedgerCsv() }
-                        )
-                        3 -> InsightsRoiScreen(
-                            state = state,
-                            onUpdateDailyCalls = { vm.updateRoi(it) },
-                            onResetDemo = { vm.resetDemo() },
-                            onOpenSettings = { showSettings = true }
-                        )
                     }
                 }
             }

@@ -5,6 +5,7 @@
 ### Live Production Server & Android App
 - **Live Web App & Backend (Cloud Run):** https://deliverex-live-353183969363.asia-south1.run.app
 - **Health & Go-Live Check:** https://deliverex-live-353183969363.asia-south1.run.app/api/health
+- **Android APK Direct Download (v1.1.0, Signed):** https://storage.googleapis.com/deliverex-downloads-353183969363/DeliverEx-Live-v1.1.apk
 - **Native Android App (Kotlin + Jetpack Compose, Play Store-ready):** [`android-app/`](./android-app) (see [`android-app/PLAY_STORE_RELEASE_GUIDE.md`](./android-app/PLAY_STORE_RELEASE_GUIDE.md))
 
 ---

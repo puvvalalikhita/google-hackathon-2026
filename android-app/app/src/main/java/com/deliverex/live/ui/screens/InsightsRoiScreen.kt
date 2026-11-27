@@ -56,7 +56,7 @@ fun InsightsRoiScreen(
         contentPadding = PaddingValues(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // 1. Interactive Route Radar Map
+        // 1. Interactive Route Map
         item {
             GlassCard(borderColor = pal.cyan.copy(alpha = 0.4f)) {
                 Row(
@@ -64,7 +64,7 @@ fun InsightsRoiScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("LIVE ROUTE RADAR", color = pal.cyan, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Monospace)
+                    Text("ROUTE MAP", color = pal.cyan, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
                     StatusPill(state.activeStore, pal.primary)
                 }
                 Spacer(Modifier.height(10.dp))
@@ -75,13 +75,13 @@ fun InsightsRoiScreen(
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("● Settled", color = pal.success, fontSize = 10.sp)
-                    Text("● Pending HITL", color = pal.warning, fontSize = 10.sp)
+                    Text("● Needs Approval", color = pal.warning, fontSize = 10.sp)
                     Text("● Open Dispatch", color = pal.cyan, fontSize = 10.sp)
                 }
             }
         }
 
-        // 2. Unit Economics & ROI Calculator
+        // 2. Monthly Savings Calculator
         item {
             GlassCard(borderColor = pal.primary.copy(alpha = 0.45f)) {
                 Row(
@@ -89,11 +89,11 @@ fun InsightsRoiScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("MSME ROI CALCULATOR", color = pal.primary, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Monospace)
+                    Text("MONTHLY SAVINGS CALCULATOR", color = pal.primary, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
                     StatusPill("${state.roi.roiMultiple}x ROI", pal.success)
                 }
                 Spacer(Modifier.height(8.dp))
-                Text("Daily Field Calls: ${state.roi.dailyCalls}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("Daily Driver Calls: ${state.roi.dailyCalls}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Slider(
                     value = state.roi.dailyCalls.toFloat(),
                     onValueChange = { onUpdateDailyCalls(it.roundToInt()) },
@@ -104,11 +104,11 @@ fun InsightsRoiScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column {
-                        Text("Human Desk Cost", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                        Text("Manual Desk Cost", color = Color(0xFF94A3B8), fontSize = 10.sp)
                         Text("₹30.00 / call", color = pal.danger, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                     Column {
-                        Text("DeliverEx Gemini AI", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                        Text("DeliverEx AI", color = Color(0xFF94A3B8), fontSize = 10.sp)
                         Text("₹2.20 / call", color = pal.cyan, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                     Column(horizontalAlignment = Alignment.End) {
@@ -119,14 +119,13 @@ fun InsightsRoiScreen(
             }
         }
 
-        // 3. Field Intelligence Alerts
+        // 3. Route Alerts
         item {
             Text(
-                "FIELD INTELLIGENCE ALERTS",
+                "ROUTE ALERTS",
                 color = pal.secondary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.ExtraBold,
-                fontFamily = FontFamily.Monospace
+                fontSize = 12.sp,
+                fontWeight = FontWeight.ExtraBold
             )
         }
         items(state.erpState.insights, key = { "${it.insightId}_${it.title}" }) { ins ->
@@ -151,7 +150,7 @@ fun InsightsRoiScreen(
             }
         }
 
-        // 4. Tamper-Evident Audit Vault & Cloud Persistence
+        // 4. Protected Records & Cloud Backup
         state.erpState.auditSummary?.let { audit ->
             item {
                 GlassCard(borderColor = if (audit.chainVerified) pal.success.copy(alpha = 0.45f) else pal.danger.copy(alpha = 0.6f)) {
@@ -161,35 +160,42 @@ fun InsightsRoiScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "AUDIT VAULT (${(state.health.storageMode.ifBlank { audit.storageBackend }).uppercase()})",
+                            "🔒 Protected Records (Tamper-Proof)",
                             color = pal.cyan,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontFamily = FontFamily.Monospace
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.ExtraBold
                         )
                         StatusPill(
-                            text = if (audit.chainVerified) "SHA256 VERIFIED (${audit.totalCount})" else "TAMPER ALERT",
+                            text = if (audit.chainVerified) "All ${audit.totalCount} Verified" else "Check Needed",
                             color = if (audit.chainVerified) pal.success else pal.danger
                         )
                     }
-                    Spacer(Modifier.height(8.dp))
-                    audit.latest.take(4).forEach { entry ->
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = Color(0x550B1220),
-                            border = BorderStroke(1.dp, pal.borderGlass),
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(8.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("${entry.auditId} • ${entry.action}", color = pal.cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                                    Text(entry.role, color = pal.success, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "All ${audit.totalCount} records verified & safely backed up (${(state.health.storageMode.ifBlank { audit.storageBackend }).uppercase()}).",
+                        color = Color(0xFFE2E8F0),
+                        fontSize = 12.sp
+                    )
+                    if (state.showDemoControls) {
+                        Spacer(Modifier.height(8.dp))
+                        audit.latest.take(4).forEach { entry ->
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color(0x550B1220),
+                                border = BorderStroke(1.dp, pal.borderGlass),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("${entry.auditId} • ${entry.action}", color = pal.cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                        Text(entry.role, color = pal.success, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                                    }
+                                    Text(entry.summary, color = Color(0xFFE2E8F0), fontSize = 11.sp)
+                                    Text("Actor: ${entry.actor} • ${entry.integrityHash.take(14)}...", color = Color(0xFF94A3B8), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                                 }
-                                Text(entry.summary, color = Color(0xFFE2E8F0), fontSize = 11.sp)
-                                Text("Actor: ${entry.actor} • ${entry.integrityHash.take(14)}...", color = Color(0xFF94A3B8), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                             }
                         }
                     }
@@ -197,16 +203,16 @@ fun InsightsRoiScreen(
             }
         }
 
-        // 5. Go-Live Readiness & Controls
+        // 5. App Connection & Controls
         item {
             GlassCard {
-                Text("PRODUCTION & SERVER CONTROLS", color = pal.cyan, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Monospace)
+                Text("APP CONNECTION & SERVER", color = pal.cyan, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = if (state.backendConnected) {
-                        "Connected: ${state.baseUrl} (${state.health.authMode})"
+                        "Connected to Cloud Server (${state.health.authMode})"
                     } else {
-                        "Offline Interactive Mode (Target: ${state.baseUrl})"
+                        "Offline Practice Mode (${state.baseUrl})"
                     },
                     color = Color(0xFFE2E8F0),
                     fontSize = 12.sp

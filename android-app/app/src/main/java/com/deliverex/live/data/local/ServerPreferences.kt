@@ -47,6 +47,24 @@ class ServerPreferences(context: Context) {
             prefs.edit().putString(KEY_OWNER_TOKEN, value.trim()).apply()
         }
 
+    var userRole: String
+        get() = prefs.getString(KEY_USER_ROLE, "DRIVER") ?: "DRIVER"
+        set(value) {
+            prefs.edit().putString(KEY_USER_ROLE, value).apply()
+        }
+
+    var preferredLanguage: String
+        get() = prefs.getString(KEY_PREFERRED_LANG, "Hinglish") ?: "Hinglish"
+        set(value) {
+            prefs.edit().putString(KEY_PREFERRED_LANG, value).apply()
+        }
+
+    var onboardingCompleted: Boolean
+        get() = prefs.getBoolean(KEY_ONBOARDING_DONE, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_ONBOARDING_DONE, value).apply()
+        }
+
     companion object {
         private const val KEY_BASE_URL = "base_url"
         private const val KEY_THEME = "theme_key"
@@ -54,5 +72,8 @@ class ServerPreferences(context: Context) {
         private const val KEY_ACTIVE_STORE = "active_store"
         private const val KEY_OFFLINE_DEMO = "offline_demo_mode"
         private const val KEY_OWNER_TOKEN = "owner_token"
+        private const val KEY_USER_ROLE = "user_role"
+        private const val KEY_PREFERRED_LANG = "preferred_language"
+        private const val KEY_ONBOARDING_DONE = "onboarding_completed"
     }
 }

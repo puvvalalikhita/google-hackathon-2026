@@ -470,6 +470,175 @@ private fun imageProxyToBitmap(image: ImageProxy): Bitmap? {
     return Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height, matrix, true)
 }
 
+fun shareTextToWhatsApp(context: android.content.Context, text: String) {
+    val waIntent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        setPackage("com.whatsapp")
+        putExtra(Intent.EXTRA_TEXT, text)
+    }
+    runCatching {
+        context.startActivity(waIntent)
+    }.onFailure {
+        val fallback = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        context.startActivity(Intent.createChooser(fallback, "Share Receipt"))
+    }
+}
+
+@Composable
+fun RoleSwitcherBar(
+    activeRole: String,
+    onSelectRole: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val pal = LocalDeliverExPalette.current
+    val roles = listOf(
+        Triple("DRIVER", "🚚 Driver", pal.success),
+        Triple("MANAGER", "👩‍💼 Manager", pal.primary),
+        Triple("DEMO", "🧪 Demo Mode", pal.cyan)
+    )
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        roles.forEach { (key, label, accent) ->
+            val selected = activeRole == key
+            Surface(
+                onClick = { onSelectRole(key) },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(12.dp),
+                color = if (selected) accent.copy(alpha = 0.22f) else Color(0x66111B2E),
+                border = BorderStroke(1.dp, if (selected) accent else pal.borderGlass)
+            ) {
+                Box(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        color = if (selected) Color.White else Color(0xFFCBD5E1),
+                        fontSize = 11.sp,
+                        fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun OnboardingScreen(
+    initialName: String,
+    initialLanguage: String,
+    onComplete: (role: String, name: String, language: String) -> Unit
+) {
+    val pal = LocalDeliverExPalette.current
+    var selectedRole by remember { mutableStateOf("DRIVER") }
+    var nameInput by remember { mutableStateOf(initialName) }
+    var selectedLang by remember { mutableStateOf(initialLanguage) }
+    val languages = listOf("Hinglish", "हिंदी", "Tanglish", "తెలుగు", "English")
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(listOf(Color(0xFF060A13), Color(0xFF0D172B), Color(0xFF070B14)))
+            )
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Spacer(Modifier.height(12.dp))
+        Text("Namaste! 👋", color = pal.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text("Welcome to DeliverEx Live", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+        Text(
+            "Choose how you are using this phone today. You can switch anytime.",
+            color = Color(0xFFCBD5E1),
+            fontSize = 13.sp,
+            lineHeight = 19.sp
+        )
+
+        listOf(
+            Triple("DRIVER", "🚚 Field Driver (Raju)", "Talk in your language, report deliveries & snap damaged bag photos."),
+            Triple("MANAGER", "👩‍💼 Manager / Owner (Priya)", "Approve discounts in 1 tap, track cash & export to Tally."),
+            Triple("DEMO", "🧪 Judge / Demo Explorer", "Show guided demo triggers, live latency & full system telemetry.")
+        ).forEach { (roleKey, title, desc) ->
+            val selected = selectedRole == roleKey
+            Surface(
+                onClick = {
+                    selectedRole = roleKey
+                    if (roleKey == "MANAGER" && nameInput == "Raju Kumar") nameInput = "Priya Sharma"
+                    if (roleKey == "DRIVER" && nameInput == "Priya Sharma") nameInput = "Raju Kumar"
+                },
+                shape = RoundedCornerShape(18.dp),
+                color = if (selected) pal.primary.copy(alpha = 0.16f) else pal.surfaceGlass,
+                border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) pal.primary else pal.borderGlass)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+                    Text(title, color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Text(desc, color = Color(0xFFCBD5E1), fontSize = 12.sp, lineHeight = 17.sp)
+                }
+            }
+        }
+
+        OutlinedTextField(
+            value = nameInput,
+            onValueChange = { nameInput = it },
+            label = { Text("Your Name") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Text("Preferred Voice Language", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            languages.forEach { lang ->
+                val sel = selectedLang == lang
+                Surface(
+                    onClick = { selectedLang = lang },
+                    shape = RoundedCornerShape(50),
+                    color = if (sel) pal.cyan.copy(alpha = 0.22f) else Color(0x66111B2E),
+                    border = BorderStroke(1.dp, if (sel) pal.cyan else pal.borderGlass)
+                ) {
+                    Text(
+                        lang,
+                        color = if (sel) Color.White else Color(0xFFCBD5E1),
+                        fontSize = 12.sp,
+                        fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                    )
+                }
+            }
+        }
+
+        GlassCard(backgroundColor = Color(0xFF0E182B)) {
+            Text(
+                "🎙️ Mic & 📷 Camera are only used when you tap Start Call, Voice Note, or Damaged Bag Photo. Your records are encrypted and backed up safely.",
+                color = Color(0xFFBAE6FD),
+                fontSize = 11.sp,
+                lineHeight = 16.sp
+            )
+        }
+
+        Button(
+            onClick = { onComplete(selectedRole, nameInput, selectedLang) },
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = pal.primary, contentColor = Color(0xFF070B14))
+        ) {
+            Text("Continue to App →", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+        }
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
 @Composable
 fun ServerAndPrivacyDialog(
     currentUrl: String,
@@ -497,12 +666,12 @@ fun ServerAndPrivacyDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("DeliverEx Ops Settings", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+                Text("App & Server Settings", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
 
                 OutlinedTextField(
                     value = urlInput,
                     onValueChange = { urlInput = it },
-                    label = { Text("Backend Server URL (FastAPI / Cloud Run)") },
+                    label = { Text("Server Address (Cloud Run / Local)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -510,7 +679,7 @@ fun ServerAndPrivacyDialog(
                 OutlinedTextField(
                     value = driverInput,
                     onValueChange = { driverInput = it },
-                    label = { Text("Driver Name") },
+                    label = { Text("Your Name") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -521,8 +690,8 @@ fun ServerAndPrivacyDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Offline Interactive Demo", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                        Text("Run SOP & ERP workflows locally without server", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                        Text("Offline Practice Mode", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Text("Try workflows locally without internet", color = Color(0xFF94A3B8), fontSize = 11.sp)
                     }
                     Switch(checked = offlineToggle, onCheckedChange = { offlineToggle = it })
                 }

@@ -83,6 +83,11 @@ data class DeliverExUiState(
     val showOwnerPinDialog: Boolean = false,
     val exportedTitle: String? = null,
     val exportedContent: String? = null,
+    val userRole: String = "DRIVER", // DRIVER | MANAGER | DEMO
+    val preferredLanguage: String = "Hinglish",
+    val onboardingCompleted: Boolean = false,
+    val showDemoControls: Boolean = false,
+    val micMuted: Boolean = false,
     val toastMessage: String? = null,
     val isRefreshing: Boolean = false
 )
@@ -104,6 +109,10 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
             themeKey = prefs.themeKey,
             driverName = prefs.driverName,
             activeStore = prefs.activeStore,
+            userRole = prefs.userRole,
+            preferredLanguage = prefs.preferredLanguage,
+            onboardingCompleted = prefs.onboardingCompleted,
+            showDemoControls = prefs.userRole == "DEMO",
             erpState = offlineEngine.snapshot(),
             policies = offlineEngine.policies
         )
@@ -268,6 +277,7 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
             it.copy(
                 callActive = false,
                 liveGeminiReady = false,
+                micMuted = false,
                 callSeconds = 0,
                 voiceEnergy = 0.04f,
                 voiceStage = "STANDBY",
@@ -289,6 +299,7 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
                 if (event.connected && hasMicPermission) {
                     audioEngine.startMicCapture(
                         onAudioChunk = { b64, rms, speaking ->
+                            if (_uiState.value.micMuted) return@startMicCapture
                             val energy = (rms * 18f).coerceIn(0.05f, 1f)
                             _uiState.update { s -> s.copy(voiceEnergy = energy) }
                             wsClient.sendAudioChunk(b64, speaking)
@@ -874,6 +885,52 @@ class DeliverExViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun dismissExportDialog() {
         _uiState.update { it.copy(exportedTitle = null, exportedContent = null) }
+    }
+
+    fun completeOnboarding(role: String, name: String, language: String) {
+        val cleanName = name.trim().ifBlank { if (role == "MANAGER") "Priya Sharma" else "Raju Kumar" }
+        prefs.userRole = role
+        prefs.driverName = cleanName
+        prefs.preferredLanguage = language
+        prefs.onboardingCompleted = true
+        _uiState.update {
+            it.copy(
+                userRole = role,
+                driverName = cleanName,
+                preferredLanguage = language,
+                onboardingCompleted = true,
+                showDemoControls = role == "DEMO"
+            )
+        }
+    }
+
+    fun switchRole(role: String) {
+        prefs.userRole = role
+        _uiState.update {
+            it.copy(
+                userRole = role,
+                showDemoControls = role == "DEMO"
+            )
+        }
+    }
+
+    fun setPreferredLanguage(language: String) {
+        prefs.preferredLanguage = language
+        _uiState.update { it.copy(preferredLanguage = language) }
+    }
+
+    fun toggleDemoControls() {
+        _uiState.update { it.copy(showDemoControls = !it.showDemoControls) }
+    }
+
+    fun toggleMicMute() {
+        _uiState.update { state ->
+            val next = !state.micMuted
+            state.copy(
+                micMuted = next,
+                voiceStageDetail = if (next) "Microphone muted — tap Unmute to speak" else "Listening — speak naturally in ${state.preferredLanguage}"
+            )
+        }
     }
 
     fun setLedgerFilter(filter: LedgerFilter) {
