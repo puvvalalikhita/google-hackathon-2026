@@ -410,11 +410,28 @@ class LiveBridgeSession:
 
                         self.last_user_audio_ts = time.perf_counter()
                         self.awaiting_first_audio = True
+                        lang_low = self.preferred_language.lower()
+                        if "తెలుగు" in self.preferred_language or "telugu" in lang_low:
+                            lang_label = "Telugu (తెలుగు)"
+                            sample_greet = f"నమస్తే {self.driver_first_name} గారు, ఏ షాప్‌లో డెలివరీ జరిగింది చెప్పండి?"
+                        elif "हिंदी" in self.preferred_language or "hindi" in lang_low:
+                            lang_label = "Hindi (हिंदी)"
+                            sample_greet = f"नमस्ते {self.driver_first_name} जी, बताइए किस दुकान पर डिलीवरी हुई?"
+                        elif "tanglish" in lang_low or "tamil" in lang_low:
+                            lang_label = "Tanglish (Tamil + English)"
+                            sample_greet = f"Vanakkam {self.driver_first_name} ji, entha shop-la delivery aachu sollunga?"
+                        elif "english" in lang_low:
+                            lang_label = "English"
+                            sample_greet = f"Hello {self.driver_first_name}! Which shop did you just deliver to?"
+                        else:
+                            lang_label = "Hinglish (Hindi + English)"
+                            sample_greet = f"Namaste {self.driver_first_name} ji, bataiye kis shop pe delivery hui?"
                         await session.send_realtime_input(
                             text=(
-                                f"[CALL CONNECTED]: Worker '{self.driver_name}' just started the call. "
-                                f"Greet {self.driver_first_name} warmly by their name '{self.driver_first_name}' (do NOT say Raju unless their name is Raju) "
-                                f"in 1 short friendly {self.preferred_language} sentence: e.g., 'Namaste {self.driver_first_name} ji, bataiye kis shop pe delivery hui?'"
+                                f"[CALL CONNECTED]: Worker '{self.driver_name}' just started the call and selected language '{lang_label}'. "
+                                f"You MUST greet {self.driver_first_name} strictly in {lang_label} (NOT Hinglish unless Hinglish was selected) "
+                                f"using their exact name '{self.driver_first_name}' (do NOT say Raju unless their name is Raju) "
+                                f"in 1 short friendly sentence like: '{sample_greet}'"
                             )
                         )
 
