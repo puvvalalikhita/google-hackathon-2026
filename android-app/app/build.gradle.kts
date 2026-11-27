@@ -40,7 +40,7 @@ android {
         create("release") {
             val storePath = signingProp("storeFile", "DELIVEREX_KEYSTORE_PATH")
             if (storePath != null) {
-                storeFile = file(storePath)
+                storeFile = rootProject.file(storePath)
                 storePassword = signingProp("storePassword", "DELIVEREX_KEYSTORE_PASSWORD")
                 keyAlias = signingProp("keyAlias", "DELIVEREX_KEY_ALIAS")
                 keyPassword = signingProp("keyPassword", "DELIVEREX_KEY_PASSWORD")
