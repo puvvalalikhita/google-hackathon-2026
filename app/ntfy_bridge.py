@@ -3,7 +3,7 @@ Open-source WhatsApp alternative messaging & push bridge powered by ntfy
 (https://github.com/binwiederhier/ntfy — Apache-2.0 / GPLv2).
 
 Dispatches official delivery receipts, Tally/CSV ledgers, manager approvals,
-and Android app update alerts over simple HTTPS pub-sub without Meta/WhatsApp fees.
+and Android app update alerts over simple HTTPS JSON pub-sub without Meta/WhatsApp fees.
 """
 import os
 from typing import Any, Dict, List, Optional
@@ -23,6 +23,16 @@ def get_ntfy_config() -> Dict[str, str]:
     }
 
 
+_PRIORITY_MAP = {
+    "min": 1,
+    "low": 2,
+    "default": 3,
+    "high": 4,
+    "urgent": 5,
+    "max": 5,
+}
+
+
 async def publish_ntfy_message(
     *,
     title: str,
@@ -34,25 +44,27 @@ async def publish_ntfy_message(
     actions: Optional[str] = None,
 ) -> Dict[str, Any]:
     cfg = get_ntfy_config()
-    headers: Dict[str, str] = {
-        "Title": title[:120],
-        "Priority": priority,
-        "Tags": ",".join(tags or ["truck", "raju-bhai"]),
-    }
+    headers: Dict[str, str] = {"Content-Type": "application/json; charset=utf-8"}
     if cfg["token"]:
         headers["Authorization"] = f"Bearer {cfg['token']}"
+
+    payload: Dict[str, Any] = {
+        "topic": cfg["topic"],
+        "title": title[:120],
+        "message": message,
+        "priority": _PRIORITY_MAP.get(priority.lower(), 4),
+        "tags": tags or ["truck", "raju-bhai"],
+    }
     if click_url:
-        headers["Click"] = click_url
+        payload["click"] = click_url
     if attach_url:
-        headers["Attach"] = attach_url
-    if actions:
-        headers["Actions"] = actions
+        payload["attach"] = attach_url
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(
-                cfg["topic_url"],
-                content=message.encode("utf-8"),
+                cfg["server"],
+                json=payload,
                 headers=headers,
             )
             return {
